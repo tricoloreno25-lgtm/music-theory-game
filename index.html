@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Chord Quest</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="stage">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Music Theory Game</p>
+            <h1>Chord Quest</h1>
+          </div>
+          <div class="scoreboard" aria-live="polite">
+            <span>Score <strong id="score">0</strong></span>
+            <span>Streak <strong id="streak">0</strong></span>
+          </div>
+        </header>
+
+        <nav class="mode-tabs" aria-label="ゲームモード">
+          <button class="tab active" data-mode="lesson">基礎</button>
+          <button class="tab" data-mode="chord">コード</button>
+          <button class="tab" data-mode="scale">スケール</button>
+          <button class="tab" data-mode="ear">耳トレ</button>
+        </nav>
+
+        <section class="workspace">
+          <aside class="side-panel">
+            <div class="lesson-card">
+              <h2 id="mode-title">音程の地図</h2>
+              <p id="mode-copy">
+                コードもスケールも、半音の並びを覚えると一気に見通しがよくなります。
+              </p>
+            </div>
+            <div class="stats-grid">
+              <div>
+                <span>正解</span>
+                <strong id="correct">0</strong>
+              </div>
+              <div>
+                <span>挑戦</span>
+                <strong id="attempts">0</strong>
+              </div>
+              <div>
+                <span>精度</span>
+                <strong id="accuracy">--</strong>
+              </div>
+            </div>
+          </aside>
+
+          <section class="game-panel">
+            <div class="prompt-row">
+              <div>
+                <p class="label" id="prompt-label">今日の課題</p>
+                <h2 id="prompt">C メジャースケールを鳴らしてみよう</h2>
+              </div>
+              <button class="icon-button" id="play-target" title="お手本を再生" aria-label="お手本を再生">
+                <span aria-hidden="true">▶</span>
+              </button>
+            </div>
+
+            <div class="answer-strip" id="answer-strip" aria-live="polite"></div>
+
+            <div class="hint-tools">
+              <button id="toggle-hint" class="secondary" aria-expanded="false" aria-controls="hint-panel">
+                ヒントを見る
+              </button>
+              <span id="hint-cost">ヒント使用時は正解点が半分</span>
+            </div>
+
+            <div class="hint-panel hidden" id="hint-panel" aria-live="polite"></div>
+
+            <div class="keyboard" id="keyboard" aria-label="ピアノ鍵盤"></div>
+
+            <div class="controls">
+              <button id="check-answer">判定</button>
+              <button id="next-challenge" class="secondary">次へ</button>
+              <button id="clear-answer" class="secondary">消す</button>
+            </div>
+          </section>
+        </section>
+
+        <section class="theory-guide" aria-labelledby="theory-title">
+          <div class="guide-heading">
+            <p class="eyebrow">Theory Notes</p>
+            <h2 id="theory-title">今回の問題で使う知識</h2>
+          </div>
+          <div class="guide-grid" id="theory-grid"></div>
+        </section>
+      </section>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
