@@ -223,8 +223,7 @@ const state = {
   correct: 0,
   attempts: 0,
   audio: null,
-  hintOpen: false,
-  hintUsed: false,
+  hintCount: 0,
   lessonStep: 0,
   solved: false,
 };
@@ -237,8 +236,6 @@ const els = {
   modeCopy: document.querySelector("#mode-copy"),
   promptLabel: document.querySelector("#prompt-label"),
   prompt: document.querySelector("#prompt"),
-  theoryTitle: document.querySelector("#theory-title"),
-  theoryGrid: document.querySelector("#theory-grid"),
   playTarget: document.querySelector("#play-target"),
   toggleHint: document.querySelector("#toggle-hint"),
   hintPanel: document.querySelector("#hint-panel"),
@@ -315,8 +312,7 @@ function setMode(mode) {
 
 function nextChallenge() {
   state.selected = [];
-  state.hintOpen = false;
-  state.hintUsed = false;
+  state.hintCount = 0;
   state.solved = false;
 
   if (state.mode === "lesson") {
@@ -370,7 +366,6 @@ function nextChallenge() {
 
   renderAnswer();
   renderHint();
-  renderTheoryNotes();
   updateHintVisibility();
   updateControls();
   updateKeyState();
@@ -381,10 +376,10 @@ function selectNote(note, octave) {
   const pitch = `${note}${octave}`;
   playNote(note, Number(octave), 0, 0.35);
 
-  if (state.mode === "lesson" && state.target?.answerMode === "scale") {
-    state.selected.push(pitch);
-  } else if (state.mode === "scale") {
-    state.selected.push(pitch);
+  if ((state.mode === "lesson" && state.target?.answerMode === "scale") || state.mode === "scale") {
+    state.selected = state.selected.includes(pitch)
+      ? state.selected.filter((item) => item !== pitch)
+      : [...state.selected, pitch];
   } else if (state.selected.some((item) => pitchNote(item) === note)) {
     state.selected = state.selected.filter((item) => pitchNote(item) !== note);
   } else {
@@ -424,71 +419,18 @@ function renderAnswer(message = "") {
 function renderHint() {
   if (!state.target) return;
 
-  if ((state.mode === "lesson" && state.target.answerMode === "scale") || state.mode === "scale") {
-    const next = state.target.notes[state.selected.length];
-    const notes = state.target.notes.map(displayPitch).join(" → ");
-    els.hintPanel.innerHTML = `
-      <div>
-        <strong>押す順番</strong>
-        <span>${notes}</span>
-      </div>
-      <div>
-        <strong>音の間隔</strong>
-        <span>${state.target.pattern}</span>
-      </div>
-      <div>
-        <strong>次に押す音</strong>
-        <span>${next ? displayPitch(next) : "完了"}</span>
-      </div>
-    `;
-    return;
-  }
-
-  if ((state.mode === "lesson" && state.target.answerMode === "chord") || state.mode === "chord") {
-    els.hintPanel.innerHTML = `
-      <div>
-        <strong>構成音</strong>
-        <span>${state.target.notes.join(" / ")}</span>
-      </div>
-      <div>
-        <strong>数え方</strong>
-        <span>${chordIntervalText(state.target.kind)}</span>
-      </div>
-    `;
-    return;
-  }
-
-  els.hintPanel.innerHTML = `
-    <div>
-      <strong>聞くポイント</strong>
-      <span>明るく開く響きならメジャー、少し影がある響きならマイナー</span>
-    </div>
-  `;
-}
-
-function renderTheoryNotes() {
-  if (!state.target) return;
-
-  const cards = theoryCardsForTarget();
-  els.theoryTitle.textContent = theoryTitleForTarget();
-  els.theoryGrid.innerHTML = cards
+  const cards = theoryCardsForTarget().slice(0, state.hintCount);
+  els.hintPanel.innerHTML = cards
     .map(
       (card, index) => `
-        <article>
-          <span class="guide-number">${String(index + 1).padStart(2, "0")}</span>
+        <div class="hint-step">
+          <strong>ヒント ${index + 1}</strong>
           <h3>${card.title}</h3>
-          <p>${card.copy}</p>
-        </article>
+          <span>${card.copy}</span>
+        </div>
       `,
     )
     .join("");
-}
-
-function theoryTitleForTarget() {
-  if (state.mode === "chord") return `${state.target.root} ${state.target.name} に必要な知識`;
-  if (state.mode === "scale") return `${state.target.root} ${state.target.name} に必要な知識`;
-  if (state.mode === "ear") return "聞き取りに必要な知識";
-  return `${state.target.root} ${state.target.name} に必要な知識`;
 }
 
 function theoryCardsForTarget() {
@@ -559,22 +501,29 @@ function theoryCardsForTarget() {
 }
 
 function toggleHint() {
-  state.hintOpen = !state.hintOpen;
-  if (state.hintOpen) {
-    state.hintUsed = true;
-  }
+  if (!state.target || state.solved) return;
+  const hintTotal = theoryCardsForTarget().length;
+  state.hintCount = Math.min(state.hintCount + 1, hintTotal);
+  renderHint();
   updateHintVisibility();
 }
 
 function updateHintVisibility() {
-  els.hintPanel.classList.toggle("hidden", !state.hintOpen);
-  els.toggleHint.textContent = state.hintOpen ? "ヒントを隠す" : "ヒントを見る";
-  els.toggleHint.setAttribute("aria-expanded", String(state.hintOpen));
-  els.hintCost.textContent = state.hintUsed ? "この問題は正解点が半分" : "ヒント使用時は正解点が半分";
+  const hintTotal = state.target ? theoryCardsForTarget().length : 0;
+  const isComplete = hintTotal > 0 && state.hintCount >= hintTotal;
+  els.hintPanel.classList.toggle("hidden", state.hintCount === 0);
+  els.toggleHint.textContent = isComplete ? "ヒントはすべて表示済み" : `ヒントを1つ見る ${state.hintCount}/${hintTotal}`;
+  els.toggleHint.setAttribute("aria-expanded", String(state.hintCount > 0));
+  els.toggleHint.disabled = isComplete || state.solved;
+  els.hintCost.textContent =
+    state.hintCount > 0
+      ? `この問題は正解点が${Math.max(0, 100 - state.hintCount * 25)}%`
+      : "ヒント1つごとに正解点が25%減";
 }
 
 function updateControls() {
   els.check.classList.toggle("hidden", state.solved);
+  updateHintVisibility();
 }
 
 function updateKeyState() {
@@ -625,13 +574,17 @@ function record(ok) {
     state.correct += 1;
     state.streak += 1;
     const baseScore = 100 + Math.min(state.streak * 15, 150);
-    state.score += state.hintUsed ? Math.round(baseScore * 0.5) : baseScore;
+    state.score += Math.round(baseScore * hintScoreMultiplier());
     playSuccess(state.target);
   } else {
     state.streak = 0;
     state.score = Math.max(0, state.score - 20);
   }
   renderStats();
+}
+
+function hintScoreMultiplier() {
+  return Math.max(0, 1 - state.hintCount * 0.25);
 }
 
 function renderStats() {
@@ -716,14 +669,12 @@ function lessonTargetForStep() {
 
 function buildLessonChallenges() {
   const scaleRoots = ["C", "G", "D", "A", "F"];
-  const chordRoots = ["C", "G", "D", "A", "E", "B", "F#", "C#", "F", "A#", "D#", "G#"];
   const scaleTypes = [
     GENERATED_LESSON_TYPES[0],
     GENERATED_LESSON_TYPES[2],
     GENERATED_LESSON_TYPES[1],
   ];
   const scaleChallenges = [];
-  const chordChallenges = [];
 
   scaleTypes.forEach((type) => {
     scaleRoots.forEach((root) => {
@@ -741,23 +692,50 @@ function buildLessonChallenges() {
     });
   });
 
-  GENERATED_LESSON_CHORD_TYPES.forEach((type) => {
+  const chordChallenges = buildChordLessonChallenges();
+  const generated = interleaveChallenges(scaleChallenges, chordChallenges).slice(0, 100 - INTRO_LESSON_CHALLENGES.length);
+  return [...INTRO_LESSON_CHALLENGES, ...generated].slice(0, 100);
+}
+
+function buildChordLessonChallenges() {
+  const introMajorRoots = ["C", "G", "D", "A"];
+  const chordRoots = ["C", "G", "D", "A", "E", "F", "B", "F#", "C#", "A#", "D#", "G#"];
+  const chordOrder = [
+    "minor",
+    "dominant7",
+    "diminished",
+    "minor7",
+    "major7",
+    "sus4",
+    "sus2",
+    "augmented",
+    "halfDiminished",
+    "major",
+  ];
+  const challenges = introMajorRoots.map((root) => createLessonChordChallenge(root, "major"));
+
+  chordOrder.forEach((kind) => {
     chordRoots.forEach((root) => {
-      chordChallenges.push({
-        root,
-        kind: type.kind,
-        name: type.name,
-        answerMode: type.answerMode,
-        intervals: type.intervals,
-        prompt: `${root} ${type.name} の構成音を選ぼう`,
-        copy: type.copy,
-        cards: type.cards(root),
-      });
+      if (kind === "major" && introMajorRoots.includes(root)) return;
+      challenges.push(createLessonChordChallenge(root, kind));
     });
   });
 
-  const generated = interleaveChallenges(scaleChallenges, chordChallenges).slice(0, 100 - INTRO_LESSON_CHALLENGES.length);
-  return [...INTRO_LESSON_CHALLENGES, ...generated].slice(0, 100);
+  return challenges;
+}
+
+function createLessonChordChallenge(root, kind) {
+  const type = GENERATED_LESSON_CHORD_TYPES.find((item) => item.kind === kind);
+  return {
+    root,
+    kind: type.kind,
+    name: type.name,
+    answerMode: type.answerMode,
+    intervals: type.intervals,
+    prompt: `${root} ${type.name} の構成音を選ぼう`,
+    copy: type.copy,
+    cards: type.cards(root),
+  };
 }
 
 function interleaveChallenges(scaleChallenges, chordChallenges) {

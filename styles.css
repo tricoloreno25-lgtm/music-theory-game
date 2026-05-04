@@ -82,7 +82,6 @@ h1 {
 .scoreboard,
 .mode-tabs,
 .workspace,
-.theory-guide,
 .lesson-card,
 .stats-grid,
 .game-panel {
@@ -141,75 +140,6 @@ h1 {
   gap: 16px;
   padding: 16px;
   border-radius: 8px;
-}
-
-.theory-guide {
-  margin-top: 16px;
-  padding: 22px;
-  border-radius: 8px;
-}
-
-.guide-heading {
-  display: flex;
-  align-items: end;
-  justify-content: space-between;
-  gap: 18px;
-  margin-bottom: 16px;
-}
-
-.guide-heading h2 {
-  margin-bottom: 0;
-  font-size: clamp(1.45rem, 3vw, 2rem);
-}
-
-.guide-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
-}
-
-.guide-grid article {
-  min-height: 210px;
-  padding: 18px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #fbfcf8;
-}
-
-.guide-grid article:first-child {
-  background: #f3faf6;
-  border-color: #b8d8c8;
-}
-
-.guide-number {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 38px;
-  height: 28px;
-  margin-bottom: 16px;
-  border-radius: 999px;
-  color: white;
-  background: var(--green-dark);
-  font-size: 0.78rem;
-  font-weight: 900;
-}
-
-.guide-grid h3 {
-  margin: 0 0 10px;
-  font-size: 1.05rem;
-}
-
-.guide-grid p {
-  margin-bottom: 0;
-  color: var(--muted);
-  font-size: 0.95rem;
-  line-height: 1.65;
-}
-
-.guide-grid strong {
-  color: var(--ink);
-  font-weight: 900;
 }
 
 .side-panel {
@@ -336,6 +266,12 @@ h1 {
   font-weight: 850;
 }
 
+.hint-tools button:disabled {
+  cursor: default;
+  color: #7a858c;
+  background: #f0f2f3;
+}
+
 .hint-tools span {
   color: var(--muted);
   font-size: 0.88rem;
@@ -343,7 +279,7 @@ h1 {
 
 .hint-panel {
   display: grid;
-  grid-template-columns: 1.3fr 1fr 0.8fr;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 10px;
   margin-bottom: 14px;
 }
@@ -356,8 +292,8 @@ h1 {
   display: none !important;
 }
 
-.hint-panel div {
-  min-height: 70px;
+.hint-step {
+  min-height: 132px;
   padding: 12px;
   border: 1px solid #d9e3df;
   border-radius: 8px;
@@ -365,6 +301,7 @@ h1 {
 }
 
 .hint-panel strong,
+.hint-panel h3,
 .hint-panel span {
   display: block;
 }
@@ -375,10 +312,17 @@ h1 {
   font-size: 0.78rem;
 }
 
+.hint-panel h3 {
+  margin: 0 0 8px;
+  font-size: 0.98rem;
+  line-height: 1.25;
+}
+
 .hint-panel span {
   color: var(--ink);
   line-height: 1.45;
-  font-weight: 760;
+  font-size: 0.9rem;
+  font-weight: 650;
 }
 
 .keyboard {
@@ -484,19 +428,6 @@ h1 {
 
   .workspace {
     grid-template-columns: 1fr;
-  }
-
-  .guide-heading {
-    align-items: start;
-    flex-direction: column;
-  }
-
-  .guide-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .guide-grid article {
-    min-height: 0;
   }
 
   .mode-tabs {
