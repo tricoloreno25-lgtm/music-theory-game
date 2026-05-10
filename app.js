@@ -32,6 +32,30 @@ const SCALES = {
   pentatonic: { name: "ペンタトニック", intervals: [0, 2, 4, 7, 9, 12], copy: "5音中心でメロディを作りやすい並び。" },
 };
 
+const DIATONIC_DEGREES = [
+  { degree: "I", quality: "", offset: 0, role: "T" },
+  { degree: "ii", quality: "m", offset: 2, role: "SD" },
+  { degree: "iii", quality: "m", offset: 4, role: "T" },
+  { degree: "IV", quality: "", offset: 5, role: "SD" },
+  { degree: "V", quality: "", offset: 7, role: "D" },
+  { degree: "vi", quality: "m", offset: 9, role: "T" },
+  { degree: "vii°", quality: "dim", offset: 11, role: "D" },
+];
+
+const FUNCTION_LABELS = {
+  T: { name: "トニック", copy: "安定" },
+  SD: { name: "サブドミナント", copy: "展開" },
+  D: { name: "ドミナント", copy: "緊張" },
+};
+
+const PROGRESSION_PATTERNS = [
+  { name: "基本カデンツ", degrees: ["I", "IV", "V", "I"], roles: ["T", "SD", "D", "T"], copy: "安定から展開、緊張を通って安定へ戻る形です。" },
+  { name: "ii - V - I", degrees: ["ii", "V", "I"], roles: ["SD", "D", "T"], copy: "ジャズやポップスでよく使われる、解決感の強い進行です。" },
+  { name: "王道進行", degrees: ["IV", "V", "iii", "vi"], roles: ["SD", "D", "T", "T"], copy: "明るさから緊張を作り、少し切ない着地へ向かう定番進行です。" },
+  { name: "循環進行", degrees: ["I", "vi", "ii", "V"], roles: ["T", "T", "SD", "D"], copy: "安定から遠回りしてドミナントへ向かう、循環しやすい進行です。" },
+  { name: "ポップ進行", degrees: ["I", "V", "vi", "IV"], roles: ["T", "D", "T", "SD"], copy: "明るい始まりから展開へ戻れる、歌ものに多い進行です。" },
+];
+
 const INTRO_LESSON_CHALLENGES = [
   {
     root: "C",
@@ -207,6 +231,26 @@ const MODES = {
     copy: "指定されたスケールを低い音から順番に押します。半音の並びを体で覚えるモードです。",
     label: "スケールを弾く",
   },
+  diatonic: {
+    title: "ダイアトニック・ビルダー",
+    copy: "キーの7音から自然にできるコードを、度数の順番に並べます。音名とローマ数字をまとめて覚えます。",
+    label: "コードを並べる",
+  },
+  function: {
+    title: "役割仕分け",
+    copy: "ダイアトニックコードをトニック、サブドミナント、ドミナントへ分類します。コード進行の土台になる役割を見ます。",
+    label: "機能を選ぶ",
+  },
+  dominant: {
+    title: "D / SD フォーカス",
+    copy: "ドミナントとサブドミナントを見分けます。解決へ向かう力と、その前に展開を作る力を分けて覚えます。",
+    label: "機能を見分ける",
+  },
+  progression: {
+    title: "コード進行",
+    copy: "度数で示された進行を、実際のキーのコード名へ変換して並べます。キーが変わっても同じ型で考える練習です。",
+    label: "進行を完成",
+  },
   ear: {
     title: "響きの聞き取り",
     copy: "お手本の響きを聞いて、メジャーかマイナーかを選びます。最初は音の高さより明暗に集中します。",
@@ -240,6 +284,7 @@ const els = {
   toggleHint: document.querySelector("#toggle-hint"),
   hintPanel: document.querySelector("#hint-panel"),
   hintCost: document.querySelector("#hint-cost"),
+  conceptBoard: document.querySelector("#concept-board"),
   check: document.querySelector("#check-answer"),
   clear: document.querySelector("#clear-answer"),
   next: document.querySelector("#next-challenge"),
@@ -265,8 +310,12 @@ function bindEvents() {
   els.check.addEventListener("click", () => checkAnswer());
   els.clear.addEventListener("click", () => {
     state.selected = [];
+    if (state.mode === "function" && state.target) {
+      state.target.assignments = {};
+    }
     state.solved = false;
     renderAnswer();
+    renderConceptBoard();
     renderHint();
     updateControls();
     updateKeyState();
@@ -355,16 +404,88 @@ function nextChallenge() {
     els.modeCopy.textContent = scale.copy;
   }
 
+  if (state.mode === "diatonic") {
+    const root = randomItem(["C", "G", "D", "A", "E"]);
+    const chords = diatonicChords(root);
+    state.target = {
+      root,
+      chords,
+      choices: diatonicChoices(root, chords),
+      notes: scalePitches(root, 4, SCALES.major.intervals),
+      type: "diatonic",
+    };
+    els.prompt.textContent = `${root}メジャーのダイアトニックコードを順番に並べる`;
+    els.modeCopy.textContent = "Iからvii°まで、キーの中だけで作れる7つのコードを並べます。";
+  }
+
+  if (state.mode === "function") {
+    const root = randomItem(["C", "G", "D", "A", "E"]);
+    const chords = diatonicChords(root);
+    state.target = {
+      root,
+      chords,
+      assignments: {},
+      notes: chordToneNames(chords.find((chord) => chord.degree === "V")),
+      type: "function",
+    };
+    els.prompt.textContent = `${root}メジャーのコードを T / SD / D に仕分ける`;
+    els.modeCopy.textContent = "同じキーのコードでも、安定、展開、緊張の役割に分けると進行が読みやすくなります。";
+  }
+
+  if (state.mode === "dominant") {
+    const root = randomItem(["C", "G", "D", "A", "E", "F"]);
+    const role = randomItem(["D", "SD"]);
+    const chords = diatonicChords(root);
+    state.target = {
+      root,
+      role,
+      chords,
+      choices: shuffleRandom(chords),
+      notes: chordToneNames(chords.find((chord) => chord.role === role)),
+      type: "dominant",
+    };
+    els.prompt.textContent = `${root}メジャーで ${FUNCTION_LABELS[role].name} を全部選ぶ`;
+    els.modeCopy.textContent =
+      role === "D"
+        ? "ドミナントは I へ戻りたくなる緊張を作ります。V と vii° が中心です。"
+        : "サブドミナントは安定から離れて、ドミナントへ向かう展開を作ります。ii と IV が中心です。";
+  }
+
+  if (state.mode === "progression") {
+    const root = randomItem(["C", "G", "D", "A", "E", "F"]);
+    const chords = diatonicChords(root);
+    const pattern = randomItem(PROGRESSION_PATTERNS);
+    const progression = pattern.degrees.map((degree) => chords.find((chord) => chord.degree === degree));
+    state.target = {
+      root,
+      pattern,
+      chords,
+      progression,
+      choices: diatonicChoices(root, chords),
+      notes: progression.flatMap((chord) => chordToneNames(chord)),
+      type: "progression",
+    };
+    els.prompt.textContent = `${root}メジャーで ${pattern.name} を完成`;
+    els.modeCopy.textContent = pattern.copy;
+  }
+
   if (state.mode === "ear") {
-    const root = randomItem(["C", "D", "E", "F", "G", "A"]);
-    const kind = randomItem(["major", "minor"]);
-    state.target = { root, kind, notes: chordNotes(root, CHORDS[kind].intervals), type: "ear" };
+    const root = randomItem(["C", "D", "E", "F", "G", "A", "B"]);
+    const kind = randomItem(Object.keys(CHORDS));
+    state.target = {
+      root,
+      kind,
+      name: CHORDS[kind].name,
+      notes: chordNotes(root, CHORDS[kind].intervals),
+      type: "ear",
+    };
     els.prompt.textContent = "聞こえた響きを鍵盤で答える";
-    els.modeCopy.textContent = "メジャーなら明るく開いた響き、マイナーなら少し影のある響きです。";
+    els.modeCopy.textContent = "明るさ、暗さ、緊張感、浮遊感を聞き分けて、構成音を鍵盤で再現します。";
     setTimeout(playTarget, 160);
   }
 
   renderAnswer();
+  renderConceptBoard();
   renderHint();
   updateHintVisibility();
   updateControls();
@@ -372,6 +493,8 @@ function nextChallenge() {
 }
 
 function selectNote(note, octave) {
+  if (usesConceptBoard()) return;
+
   ensureAudio();
   const pitch = `${note}${octave}`;
   playNote(note, Number(octave), 0, 0.35);
@@ -400,6 +523,44 @@ function renderAnswer(message = "") {
     els.answerStrip.appendChild(feedback);
   }
 
+  if (!message && usesConceptBoard()) {
+    if (state.mode === "diatonic" && state.selected.length === 0) {
+      const hint = document.createElement("span");
+      hint.className = "hint";
+      hint.textContent = "カードを押して I から順番に並べる";
+      els.answerStrip.appendChild(hint);
+      return;
+    }
+
+    if (state.mode === "dominant") {
+      const expectedCount = state.target.chords.filter((chord) => chord.role === state.target.role).length;
+      const hint = document.createElement("span");
+      hint.className = "hint";
+      hint.textContent = `${FUNCTION_LABELS[state.target.role].name}をすべて選ぶ ${state.selected.length}/${expectedCount}`;
+      els.answerStrip.appendChild(hint);
+      return;
+    }
+
+    if (state.mode === "progression" && state.selected.length === 0) {
+      const hint = document.createElement("span");
+      hint.className = "hint";
+      hint.textContent = "コードカードを押して進行の左から順番に埋める";
+      els.answerStrip.appendChild(hint);
+      return;
+    }
+
+    if (state.mode === "function") {
+      const assigned = Object.keys(state.target.assignments).length;
+      const hint = document.createElement("span");
+      hint.className = "hint";
+      hint.textContent = state.selected[0]
+        ? `${chordById(state.selected[0]).symbol} をどの機能に置くか選ぶ`
+        : `仕分け済み ${assigned}/7`;
+      els.answerStrip.appendChild(hint);
+      return;
+    }
+  }
+
   const values = state.selected.length ? state.selected : [];
   if (!message && values.length === 0) {
     const hint = document.createElement("span");
@@ -411,8 +572,236 @@ function renderAnswer(message = "") {
   values.forEach((value) => {
     const span = document.createElement("span");
     span.className = "answer-note";
-    span.textContent = displayPitch(value);
+    span.textContent = usesConceptBoard() ? diatonicChoiceById(value)?.symbol || chordById(value)?.symbol || value : displayPitch(value);
     els.answerStrip.appendChild(span);
+  });
+}
+
+function renderConceptBoard() {
+  if (!usesConceptBoard()) {
+    els.conceptBoard.classList.add("hidden");
+    els.conceptBoard.innerHTML = "";
+    els.keyboard.classList.remove("hidden");
+    return;
+  }
+
+  els.keyboard.classList.add("hidden");
+  els.conceptBoard.classList.remove("hidden");
+
+  if (state.mode === "diatonic") {
+    renderDiatonicBoard();
+    return;
+  }
+
+  if (state.mode === "dominant") {
+    renderDominantBoard();
+    return;
+  }
+
+  if (state.mode === "progression") {
+    renderProgressionBoard();
+    return;
+  }
+
+  renderFunctionBoard();
+}
+
+function renderDiatonicBoard() {
+  const selectedChords = state.selected.map((id) => diatonicChoiceById(id));
+  const remaining = state.target.choices.filter((chord) => !state.selected.includes(chord.id));
+
+  els.conceptBoard.innerHTML = `
+    <div class="degree-row">
+      ${state.target.chords
+        .map(
+          (chord, index) => `
+            <div class="degree-slot ${selectedChords[index]?.id === chord.id ? "filled correct-slot" : selectedChords[index] ? "filled" : ""}">
+              <span>${chord.degree}</span>
+              <strong>${selectedChords[index]?.symbol || "?"}</strong>
+            </div>
+          `,
+        )
+        .join("")}
+    </div>
+    <div class="step-map" aria-label="全音と半音の位置">
+      ${["全", "全", "半", "全", "全", "全", "半"].map((step) => `<span class="${step === "半" ? "half" : ""}">${step}</span>`).join("")}
+    </div>
+    <div class="card-bank">
+      ${remaining
+        .map(
+          (chord) => `
+            <button class="chord-card" data-action="pick-diatonic" data-id="${chord.id}">
+              <strong>${chord.symbol}</strong>
+            </button>
+          `,
+        )
+        .join("")}
+    </div>
+  `;
+
+  bindConceptButtons();
+}
+
+function renderFunctionBoard() {
+  const columns = ["T", "SD", "D"];
+  const assignedIds = Object.keys(state.target.assignments);
+  const unassigned = state.target.chords.filter((chord) => !assignedIds.includes(chord.id));
+
+  els.conceptBoard.innerHTML = `
+    <div class="function-layout">
+      <div class="function-bank">
+        <p class="mini-label">未分類</p>
+        <div class="card-bank compact">
+          ${shuffleStable(unassigned, `${state.target.root}-function`)
+            .map(
+              (chord) => `
+                <button class="chord-card" data-action="focus-function" data-id="${chord.id}">
+                  <span>${chord.degree}</span>
+                  <strong>${chord.symbol}</strong>
+                  <small>${chord.note}</small>
+                </button>
+              `,
+            )
+            .join("")}
+        </div>
+      </div>
+      ${columns
+        .map(
+          (role) => `
+            <div class="function-column">
+              <button class="function-head" data-action="assign-function" data-role="${role}">
+                <strong>${role}</strong>
+                <span>${FUNCTION_LABELS[role].name}</span>
+                <small>${FUNCTION_LABELS[role].copy}</small>
+              </button>
+              <div class="function-drop">
+                ${state.target.chords
+                  .filter((chord) => state.target.assignments[chord.id] === role)
+                  .map(
+                    (chord) => `
+                      <button class="assigned-card" data-action="focus-function" data-id="${chord.id}">
+                        <span>${chord.degree}</span>
+                        <strong>${chord.symbol}</strong>
+                      </button>
+                    `,
+                  )
+                  .join("")}
+              </div>
+            </div>
+          `,
+        )
+        .join("")}
+    </div>
+    <div class="function-actions">
+      <span>${state.selected[0] ? `${chordById(state.selected[0]).symbol} の置き場所を選択中` : "コードを選んで、T / SD / D の見出しを押す"}</span>
+    </div>
+  `;
+
+  bindConceptButtons();
+}
+
+function renderDominantBoard() {
+  const selectedIds = new Set(state.selected);
+  els.conceptBoard.innerHTML = `
+    <div class="role-focus">
+      <div>
+        <span>今回の役割</span>
+        <strong>${FUNCTION_LABELS[state.target.role].name}</strong>
+        <small>${state.target.role}</small>
+      </div>
+      <p>${state.target.role === "D" ? "V と vii° を探します。" : "ii と IV を探します。"}</p>
+    </div>
+    <div class="card-bank">
+      ${state.target.choices
+        .map(
+          (chord) => `
+            <button class="chord-card selectable ${selectedIds.has(chord.id) ? "selected" : ""}" data-action="toggle-dominant" data-id="${chord.id}">
+              <span>${chord.degree}</span>
+              <strong>${chord.symbol}</strong>
+            </button>
+          `,
+        )
+        .join("")}
+    </div>
+  `;
+
+  bindConceptButtons();
+}
+
+function renderProgressionBoard() {
+  const selectedChords = state.selected.map((id) => diatonicChoiceById(id));
+  const remaining = state.target.choices.filter((chord) => !state.selected.includes(chord.id));
+
+  els.conceptBoard.innerHTML = `
+    <div class="progression-row">
+      ${state.target.progression
+        .map(
+          (chord, index) => `
+            <div class="degree-slot ${selectedChords[index]?.id === chord.id ? "filled correct-slot" : selectedChords[index] ? "filled" : ""}">
+              <span>${state.target.pattern.roles[index]}</span>
+              <strong>${selectedChords[index]?.symbol || "?"}</strong>
+              <small>${chord.degree}</small>
+            </div>
+          `,
+        )
+        .join("")}
+    </div>
+    <div class="card-bank">
+      ${remaining
+        .map(
+          (chord) => `
+            <button class="chord-card" data-action="pick-progression" data-id="${chord.id}">
+              <strong>${chord.symbol}</strong>
+            </button>
+          `,
+        )
+        .join("")}
+    </div>
+  `;
+
+  bindConceptButtons();
+}
+
+function bindConceptButtons() {
+  els.conceptBoard.querySelectorAll("button").forEach((button) => {
+    button.addEventListener("click", () => {
+      if (state.solved) return;
+
+      const { action, id, role } = button.dataset;
+
+      if (action === "pick-diatonic") {
+        if (state.selected.length >= state.target.chords.length) return;
+        state.selected.push(id);
+        renderAnswer();
+        renderConceptBoard();
+      }
+
+      if (action === "focus-function") {
+        state.selected = state.selected[0] === id ? [] : [id];
+        renderAnswer();
+        renderConceptBoard();
+      }
+
+      if (action === "assign-function" && state.selected[0]) {
+        state.target.assignments[state.selected[0]] = role;
+        state.selected = [];
+        renderAnswer();
+        renderConceptBoard();
+      }
+
+      if (action === "toggle-dominant") {
+        state.selected = state.selected.includes(id) ? state.selected.filter((item) => item !== id) : [...state.selected, id];
+        renderAnswer();
+        renderConceptBoard();
+      }
+
+      if (action === "pick-progression") {
+        if (state.selected.length >= state.target.progression.length) return;
+        state.selected.push(id);
+        renderAnswer();
+        renderConceptBoard();
+      }
+    });
   });
 }
 
@@ -480,18 +869,102 @@ function theoryCardsForTarget() {
     ];
   }
 
+  if (state.mode === "diatonic") {
+    return [
+      {
+        title: "ダイアトニックコード",
+        copy: "キーのスケール音だけを使い、1音おきに3つ重ねると7つのコードができます。",
+      },
+      {
+        title: "メジャーキーの型",
+        copy: "順番は <strong>I / ii / iii / IV / V / vi / vii°</strong> です。大文字はメジャー、小文字はマイナーを表します。",
+      },
+      {
+        title: "Cで見る",
+        copy: "Cメジャーなら <strong>C / Dm / Em / F / G / Am / Bdim</strong> です。ほかのキーでも度数の型は同じです。",
+      },
+      {
+        title: "半音位置",
+        copy: "メジャースケールは <strong>全・全・半・全・全・全・半</strong>。3番目と4番目、7番目と8番目が半音です。",
+      },
+    ];
+  }
+
+  if (state.mode === "function") {
+    return [
+      {
+        title: "3つの役割",
+        copy: "<strong>T</strong> は安定、<strong>SD</strong> は展開、<strong>D</strong> は緊張と解決への力を作ります。",
+      },
+      {
+        title: "基本の分類",
+        copy: "このゲームでは <strong>I / iii / vi = T</strong>、<strong>ii / IV = SD</strong>、<strong>V / vii° = D</strong> として扱います。",
+      },
+      {
+        title: "ドミナント",
+        copy: "<strong>V</strong> と <strong>vii°</strong> は I に戻りたくなる響きです。コード進行の山場を作ります。",
+      },
+      {
+        title: "サブドミナント",
+        copy: "<strong>IV</strong> と <strong>ii</strong> は T から D へ向かう橋渡しとしてよく使われます。",
+      },
+    ];
+  }
+
+  if (state.mode === "dominant") {
+    return [
+      {
+        title: "ドミナント",
+        copy: "<strong>V</strong> と <strong>vii°</strong> は I に戻りたくなる緊張を作ります。曲の区切りや解決前によく出ます。",
+      },
+      {
+        title: "サブドミナント",
+        copy: "<strong>ii</strong> と <strong>IV</strong> は T から離れて、D へ向かう準備を作ります。",
+      },
+      {
+        title: "見分け方",
+        copy: "まずローマ数字を見ます。D は <strong>V / vii°</strong>、SD は <strong>ii / IV</strong> として覚えます。",
+      },
+      {
+        title: "コード進行での位置",
+        copy: "よくある流れは <strong>T → SD → D → T</strong> です。SD が展開し、D が解決へ押し出します。",
+      },
+    ];
+  }
+
+  if (state.mode === "progression") {
+    return [
+      {
+        title: "度数で読む",
+        copy: `今回の進行は <strong>${state.target.pattern.degrees.join(" - ")}</strong> です。キーが変わっても度数の並びは同じです。`,
+      },
+      {
+        title: "役割の流れ",
+        copy: `<strong>${state.target.pattern.roles.join(" → ")}</strong> の流れとして考えると、どこで展開し、どこで解決するかが見えます。`,
+      },
+      {
+        title: "キーへ変換する",
+        copy: `${state.target.root}メジャーのダイアトニックコードから、表示された度数に合うコード名を選びます。`,
+      },
+      {
+        title: "型を覚える",
+        copy: "コード名を丸暗記するより、I、IV、V、vi などの度数で型を覚えると移調しやすくなります。",
+      },
+    ];
+  }
+
   return [
     {
-      title: "明るさを聞く",
-      copy: "メジャーは開いた明るい響き、マイナーは少し沈んだ響きとして聞こえやすいです。",
+      title: "響きの性格を聞く",
+      copy: "明るい、暗い、不安定、浮いている、解決したいなど、まずコード全体の印象をつかみます。",
     },
     {
-      title: "3度に集中する",
-      copy: "聞き取りでは一番下と真ん中の音の距離が重要です。長3度ならメジャー、短3度ならマイナーです。",
+      title: "3度と5度に集中する",
+      copy: "長3度ならメジャー寄り、短3度ならマイナー寄りです。5度が狭いとディミニッシュ、広いとオーギュメントに聞こえます。",
     },
     {
-      title: "高さより種類",
-      copy: "このモードでは絶対音感は不要です。音の高さそのものより、響きの種類を判断します。",
+      title: "7度やsusを探す",
+      copy: "4音の厚みがあればセブンス系、3度がなく開いた響きならsus系の可能性があります。",
     },
     {
       title: "もう一度聞く",
@@ -549,12 +1022,68 @@ function checkAnswer() {
     return;
   }
 
-  if (state.mode === "chord" || state.mode === "ear") {
+  if (state.mode === "chord") {
     const selectedNotes = state.selected.map(pitchNote);
     const ok = samePitchSet(selectedNotes, state.target.notes);
     record(ok);
     state.solved = ok;
     renderAnswer(ok ? "正解" : `答え: ${state.target.notes.join(" ")}`);
+    updateControls();
+    return;
+  }
+
+  if (state.mode === "ear") {
+    const selectedNotes = state.selected.map(pitchNote);
+    const ok = samePitchSet(selectedNotes, state.target.notes);
+    record(ok);
+    state.solved = ok;
+    const answer = `${state.target.root} ${state.target.name}`;
+    renderAnswer(ok ? `正解: ${answer}` : `答え: ${answer} (${state.target.notes.join(" ")})`);
+    updateControls();
+    return;
+  }
+
+  if (state.mode === "diatonic") {
+    const ok = arraysEqual(state.selected, state.target.chords.map((chord) => chord.id));
+    record(ok);
+    state.solved = ok;
+    const answer = state.target.chords.map((chord) => `${chord.degree}:${chord.symbol}`).join(" ");
+    renderAnswer(ok ? `${state.target.root}メジャーの7コード完成` : `答え: ${answer}`);
+    renderConceptBoard();
+    updateControls();
+    return;
+  }
+
+  if (state.mode === "function") {
+    const ok = state.target.chords.every((chord) => state.target.assignments[chord.id] === chord.role);
+    record(ok);
+    state.solved = ok;
+    renderAnswer(ok ? "全コードを正しく仕分けました" : `答え: ${functionAnswerText(state.target.chords)}`);
+    renderConceptBoard();
+    updateControls();
+    return;
+  }
+
+  if (state.mode === "dominant") {
+    const expected = state.target.chords.filter((chord) => chord.role === state.target.role).map((chord) => chord.id);
+    const ok = sameSet(state.selected, expected);
+    record(ok);
+    state.solved = ok;
+    const answer = expected.map((id) => chordById(id).symbol).join(" / ");
+    renderAnswer(ok ? `${FUNCTION_LABELS[state.target.role].name}を選べました` : `答え: ${answer}`);
+    renderConceptBoard();
+    updateControls();
+    return;
+  }
+
+  if (state.mode === "progression") {
+    const expected = state.target.progression.map((chord) => chord.id);
+    const ok = arraysEqual(state.selected, expected);
+    record(ok);
+    state.solved = ok;
+    const answer = state.target.progression.map((chord) => `${chord.degree}:${chord.symbol}`).join(" ");
+    renderAnswer(ok ? `${state.target.pattern.name} 完成` : `答え: ${answer}`);
+    renderConceptBoard();
     updateControls();
     return;
   }
@@ -598,8 +1127,15 @@ function renderStats() {
 function playTarget() {
   ensureAudio();
   if (!state.target) return;
+
+  if (state.mode === "progression") {
+    playChordSequence(state.target.progression, 0.55);
+    flashKeys(state.target.progression.flatMap((chord) => chordToneNames(chord)));
+    return;
+  }
+
   const notes = state.target.notes;
-  if (state.mode === "scale" || (state.mode === "lesson" && state.target.answerMode === "scale")) {
+  if (state.mode === "scale" || state.mode === "diatonic" || (state.mode === "lesson" && state.target.answerMode === "scale")) {
     notes.forEach((pitch, index) => playNote(pitchNote(pitch), pitchOctave(pitch), index * 0.22, 0.2));
   } else {
     notes.forEach((note) => playNote(note, 4, 0, 0.75));
@@ -609,8 +1145,14 @@ function playTarget() {
 
 function playSuccess(target) {
   if (!target) return;
+  ensureAudio();
 
-  if ((target.type === "lesson" && target.answerMode === "scale") || target.type === "scale") {
+  if (target.type === "progression") {
+    playChordSequence(target.progression, 0.22);
+    return;
+  }
+
+  if ((target.type === "lesson" && target.answerMode === "scale") || target.type === "scale" || target.type === "diatonic") {
     target.notes.forEach((pitch, index) => {
       playNote(pitchNote(pitch), pitchOctave(pitch), index * 0.08, 0.18);
     });
@@ -618,6 +1160,12 @@ function playSuccess(target) {
   }
 
   target.notes.forEach((note) => playNote(note, 4, 0, 0.55));
+}
+
+function playChordSequence(chords, stepDelay) {
+  chords.forEach((chord, index) => {
+    chordToneNames(chord).forEach((note) => playNote(note, 4, index * stepDelay, 0.42));
+  });
 }
 
 function ensureAudio() {
@@ -714,8 +1262,9 @@ function buildChordLessonChallenges() {
   ];
   const challenges = introMajorRoots.map((root) => createLessonChordChallenge(root, "major"));
 
-  chordOrder.forEach((kind) => {
-    chordRoots.forEach((root) => {
+  chordRoots.forEach((_, round) => {
+    chordOrder.forEach((kind, kindIndex) => {
+      const root = chordRoots[(round + kindIndex * 3) % chordRoots.length];
       if (kind === "major" && introMajorRoots.includes(root)) return;
       challenges.push(createLessonChordChallenge(root, kind));
     });
@@ -761,6 +1310,86 @@ function interleaveChallenges(scaleChallenges, chordChallenges) {
   }
 
   return list;
+}
+
+function usesConceptBoard() {
+  return ["diatonic", "function", "dominant", "progression"].includes(state.mode);
+}
+
+function diatonicChords(root) {
+  return DIATONIC_DEGREES.map((item, index) => {
+    const note = transpose(root, item.offset);
+    const symbol = `${note}${item.quality === "dim" ? "dim" : item.quality}`;
+    return {
+      ...item,
+      id: `${root}-${index}`,
+      note,
+      symbol,
+    };
+  });
+}
+
+function diatonicChoices(root, chords) {
+  const chordSymbols = new Set(chords.map((chord) => chord.symbol));
+  const dummyQualities = ["", "m", "dim"];
+  const dummyCandidates = NOTES.map((note) => dummyQualities.map((quality) => ({ note, quality })))
+    .flat()
+    .map(({ note, quality }) => ({
+      id: `${root}-dummy-${note}${quality || "maj"}`,
+      note,
+      quality,
+      symbol: `${note}${quality === "dim" ? "dim" : quality}`,
+      isDummy: true,
+    }))
+    .filter((chord) => !chordSymbols.has(chord.symbol));
+  const dummies = shuffleRandom(dummyCandidates).slice(0, 4);
+
+  return shuffleRandom([...chords, ...dummies]);
+}
+
+function chordToneNames(chord) {
+  if (!chord) return [];
+  const intervals = chord.quality === "dim" ? CHORDS.diminished.intervals : chord.quality === "m" ? CHORDS.minor.intervals : CHORDS.major.intervals;
+  return chordNotes(chord.note, intervals);
+}
+
+function chordById(id) {
+  return state.target?.chords?.find((chord) => chord.id === id);
+}
+
+function diatonicChoiceById(id) {
+  return state.target?.choices?.find((chord) => chord.id === id) || chordById(id);
+}
+
+function roleName(role) {
+  return FUNCTION_LABELS[role]?.name || role;
+}
+
+function functionAnswerText(chords) {
+  return ["T", "SD", "D"]
+    .map((role) => `${role}: ${chords.filter((chord) => chord.role === role).map((chord) => chord.symbol).join(" / ")}`)
+    .join("　");
+}
+
+function shuffleStable(items, seed) {
+  return [...items].sort((a, b) => stableWeight(`${seed}-${a.id}`) - stableWeight(`${seed}-${b.id}`));
+}
+
+function shuffleRandom(items) {
+  const list = [...items];
+  for (let index = list.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [list[index], list[swapIndex]] = [list[swapIndex], list[index]];
+  }
+  return list;
+}
+
+function sameSet(a, b) {
+  return a.length === b.length && a.every((item) => b.includes(item));
+}
+
+function stableWeight(value) {
+  return [...value].reduce((sum, char, index) => sum + char.charCodeAt(0) * (index + 3), 0) % 997;
 }
 
 function chordNotes(root, intervals) {
