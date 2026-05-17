@@ -79,12 +79,15 @@ h1 {
   line-height: 0.95;
 }
 
+.topbar-tools,
 .scoreboard,
+.account-panel,
 .mode-tabs,
 .workspace,
 .lesson-card,
 .stats-grid,
-.game-panel {
+.game-panel,
+.mypage-panel {
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.82);
   box-shadow: var(--shadow);
@@ -95,6 +98,57 @@ h1 {
   gap: 10px;
   padding: 10px;
   border-radius: 8px;
+}
+
+.topbar-tools {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.account-panel {
+  min-width: 220px;
+  padding: 10px;
+  border-radius: 8px;
+}
+
+.account-panel label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.account-panel div {
+  display: flex;
+  gap: 8px;
+}
+
+.account-panel select {
+  min-width: 0;
+  flex: 1;
+  height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 0 10px;
+  color: var(--ink);
+  background: var(--paper);
+  font: inherit;
+  font-weight: 750;
+}
+
+.small-button {
+  min-width: 54px;
+  height: 42px;
+  border-radius: 7px;
+  color: white;
+  background: var(--green-dark);
+  font-weight: 850;
 }
 
 .scoreboard span {
@@ -114,7 +168,7 @@ h1 {
 
 .mode-tabs {
   display: grid;
-  grid-template-columns: repeat(8, 1fr);
+  grid-template-columns: repeat(9, 1fr);
   gap: 6px;
   padding: 6px;
   border-radius: 8px;
@@ -171,7 +225,7 @@ h1 {
 
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   overflow: hidden;
 }
 
@@ -184,6 +238,14 @@ h1 {
   border-right: 0;
 }
 
+.stats-grid div:nth-child(2n) {
+  border-right: 0;
+}
+
+.stats-grid div:nth-child(n + 3) {
+  border-top: 1px solid var(--line);
+}
+
 .stats-grid span {
   display: block;
   color: var(--muted);
@@ -194,9 +256,169 @@ h1 {
   font-size: 1.45rem;
 }
 
-.game-panel {
+.game-panel,
+.mypage-panel {
   min-width: 0;
   padding: 22px;
+}
+
+.mypage-panel {
+  display: grid;
+  gap: 18px;
+  border-radius: 8px;
+}
+
+.mypage-head {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.mypage-head h2 {
+  margin-bottom: 6px;
+  font-size: clamp(1.35rem, 2.6vw, 2rem);
+}
+
+.mypage-head p {
+  margin-bottom: 0;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.mypage-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 10px;
+}
+
+.menu-score-card {
+  min-height: 154px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcf8;
+  text-align: left;
+}
+
+.menu-score-card:hover {
+  border-color: var(--green);
+  box-shadow: 0 10px 26px rgba(32, 38, 43, 0.08);
+}
+
+.menu-score-card strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 1.12rem;
+}
+
+.menu-score-card span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 760;
+}
+
+.score-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.score-metrics div {
+  min-width: 0;
+  padding: 8px;
+  border-radius: 7px;
+  background: #eef2f4;
+}
+
+.score-metrics b {
+  display: block;
+  font-size: 1.2rem;
+}
+
+.detail-toolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.detail-toolbar button {
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 7px;
+  color: var(--ink);
+  background: #e9edf0;
+  font-weight: 850;
+}
+
+.history-table {
+  display: grid;
+  gap: 8px;
+}
+
+.history-row {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.4fr) repeat(4, minmax(76px, 0.45fr)) minmax(104px, 0.5fr);
+  gap: 8px;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcf8;
+}
+
+.history-row.header {
+  color: var(--muted);
+  background: transparent;
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.history-row strong {
+  font-size: 0.96rem;
+}
+
+.history-row span {
+  min-width: 0;
+}
+
+.status-pill {
+  display: inline-flex;
+  justify-content: center;
+  min-height: 28px;
+  padding: 5px 8px;
+  border-radius: 7px;
+  background: #eef2f4;
+  color: var(--muted);
+  font-weight: 850;
+}
+
+.status-pill.solved {
+  color: var(--green-dark);
+  background: #edf8f3;
+}
+
+.history-jump {
+  width: 100%;
+  min-height: 34px;
+  padding: 0 10px;
+  border-radius: 7px;
+  color: white;
+  background: var(--green-dark);
+  font-size: 0.84rem;
+  font-weight: 850;
+}
+
+.empty-history {
+  padding: 18px;
+  border: 1px dashed #b9c3c8;
+  border-radius: 8px;
+  color: var(--muted);
+  background: #fbfcf8;
+  font-weight: 760;
 }
 
 .prompt-row {
@@ -211,6 +433,29 @@ h1 {
   margin-bottom: 0;
   font-size: clamp(1.4rem, 3vw, 2.35rem);
   line-height: 1.1;
+}
+
+.solved-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  margin: 10px 0 0;
+  padding: 4px 9px;
+  border-radius: 7px;
+  color: var(--muted);
+  background: #eef2f4;
+  font-size: 0.82rem;
+  font-weight: 850;
+}
+
+.solved-status.solved {
+  color: var(--green-dark);
+  background: #edf8f3;
+}
+
+.solved-status.missed {
+  color: #914635;
+  background: #fff0eb;
 }
 
 .icon-button {
@@ -244,6 +489,32 @@ h1 {
   background: var(--blue);
   text-align: center;
   font-weight: 850;
+}
+
+.feedback-banner {
+  width: 100%;
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  padding: 14px 16px;
+  border: 2px solid #c7d0d5;
+  border-radius: 8px;
+  background: #eef2f4;
+  color: var(--ink);
+  font-size: 1.12rem;
+  font-weight: 900;
+}
+
+.feedback-banner.correct {
+  border-color: rgba(47, 143, 107, 0.72);
+  background: #e4f6ed;
+  color: var(--green-dark);
+}
+
+.feedback-banner.incorrect {
+  border-color: rgba(227, 108, 85, 0.72);
+  background: #fff0eb;
+  color: #914635;
 }
 
 .hint {
@@ -342,6 +613,96 @@ h1 {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
   gap: 8px;
+}
+
+.progression-study,
+.voice-line,
+.progression-library {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcf8;
+}
+
+.progression-study {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+}
+
+.progression-info span,
+.voice-line span,
+.progression-library article span {
+  color: var(--green-dark);
+  font-size: 0.76rem;
+  font-weight: 850;
+}
+
+.progression-info strong,
+.voice-line strong {
+  display: block;
+  margin: 2px 0 6px;
+  font-size: 1.18rem;
+}
+
+.progression-info p,
+.voice-line p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.5;
+  font-weight: 700;
+}
+
+.playback-toggle {
+  display: flex;
+  gap: 6px;
+  padding: 4px;
+  border-radius: 8px;
+  background: #e9edf0;
+}
+
+.playback-toggle button {
+  min-height: 36px;
+  padding: 0 10px;
+  border-radius: 6px;
+  color: var(--muted);
+  background: transparent;
+  font-size: 0.82rem;
+  font-weight: 850;
+}
+
+.playback-toggle button.active {
+  color: white;
+  background: var(--green-dark);
+}
+
+.progression-library > div {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+}
+
+.progression-library article {
+  min-height: 92px;
+  padding: 10px;
+  border-radius: 7px;
+  background: #eef2f4;
+}
+
+.progression-library article strong,
+.progression-library article small {
+  display: block;
+}
+
+.progression-library article strong {
+  margin: 2px 0 5px;
+}
+
+.progression-library article small {
+  color: var(--muted);
+  line-height: 1.35;
+  font-weight: 760;
 }
 
 .degree-slot,
@@ -648,6 +1009,15 @@ h1 {
     width: 100%;
   }
 
+  .topbar-tools {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .account-panel {
+    width: 100%;
+  }
+
   .scoreboard span {
     flex: 1;
     min-width: 0;
@@ -658,7 +1028,7 @@ h1 {
   }
 
   .mode-tabs {
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(3, 1fr);
   }
 
   .tab {
@@ -671,8 +1041,17 @@ h1 {
   }
 
   .function-layout,
-  .role-focus {
+  .role-focus,
+  .progression-study {
     grid-template-columns: 1fr;
+  }
+
+  .playback-toggle {
+    width: 100%;
+  }
+
+  .playback-toggle button {
+    flex: 1;
   }
 
   .keyboard {
@@ -682,6 +1061,18 @@ h1 {
 
   .hint-panel {
     grid-template-columns: 1fr;
+  }
+
+  .mypage-head {
+    flex-direction: column;
+  }
+
+  .history-row {
+    grid-template-columns: 1fr;
+  }
+
+  .history-row.header {
+    display: none;
   }
 
   .key span {
