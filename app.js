@@ -1,3 +1,4 @@
+// 手修正ポイント: 音名と鍵盤配置。鍵盤数や表示オクターブを変える時はこの3つから確認
 const NOTES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 const WHITE_SEQUENCE = ["C", "D", "E", "F", "G", "A", "B", "C", "D", "E", "F", "G", "A", "B", "C"];
 const BLACK_KEYS = [
@@ -13,6 +14,7 @@ const BLACK_KEYS = [
   { note: "A#", slot: 13 },
 ];
 
+// 手修正ポイント: コード辞書。自由練習のコード候補とコード問題の両方で使う
 const CHORDS = {
   major: { name: "メジャー", intervals: [0, 4, 7], copy: "明るい響き。ルート、長3度、完全5度。" },
   minor: { name: "マイナー", intervals: [0, 3, 7], copy: "少し暗い響き。ルート、短3度、完全5度。" },
@@ -26,12 +28,23 @@ const CHORDS = {
   halfDiminished: { name: "ハーフディミニッシュ", intervals: [0, 3, 6, 10], copy: "不安定な響き。ディミニッシュ三和音に短7度。" },
 };
 
+// 手修正ポイント: スケール辞書。通常のスケール問題で使う基本セット
 const SCALES = {
   major: { name: "メジャー", intervals: [0, 2, 4, 5, 7, 9, 11, 12], copy: "全全半全全全半の並び。" },
   naturalMinor: { name: "ナチュラルマイナー", intervals: [0, 2, 3, 5, 7, 8, 10, 12], copy: "全半全全半全全の並び。" },
   pentatonic: { name: "ペンタトニック", intervals: [0, 2, 4, 7, 9, 12], copy: "5音中心でメロディを作りやすい並び。" },
 };
 
+// 手修正ポイント: 自由練習だけで使う追加スケール。候補を増減するならここ
+const PRACTICE_SCALES = {
+  ...SCALES,
+  minorPentatonic: { name: "マイナーペンタトニック", intervals: [0, 3, 5, 7, 10, 12], copy: "短3度を含む、暗めで扱いやすい5音。" },
+  dorian: { name: "ドリアン", intervals: [0, 2, 3, 5, 7, 9, 10, 12], copy: "マイナー系ですが6度が明るく響きます。" },
+  mixolydian: { name: "ミクソリディアン", intervals: [0, 2, 4, 5, 7, 9, 10, 12], copy: "メジャー系に短7度を足した、7th感のある響き。" },
+  blues: { name: "ブルース", intervals: [0, 3, 5, 6, 7, 10, 12], copy: "マイナーペンタにブルーノートを足した形。" },
+};
+
+// 手修正ポイント: ダイアトニックコードの度数・品質・機能。機能分類の正解にも影響
 const DIATONIC_DEGREES = [
   { degree: "I", quality: "", offset: 0, role: "T" },
   { degree: "ii", quality: "m", offset: 2, role: "SD" },
@@ -42,6 +55,7 @@ const DIATONIC_DEGREES = [
   { degree: "vii°", quality: "dim", offset: 11, role: "D" },
 ];
 
+// 手修正ポイント: T / SD / D などの表示名と短い説明
 const FUNCTION_LABELS = {
   T: { name: "トニック", copy: "安定" },
   SD: { name: "サブドミナント", copy: "展開" },
@@ -50,6 +64,7 @@ const FUNCTION_LABELS = {
   Line: { name: "ラインクリシェ", copy: "声部の順次進行" },
 };
 
+// 手修正ポイント: コード進行ライブラリ。新しい進行を足すならこの配列へ追加
 const PROGRESSION_PATTERNS = [
   {
     name: "基本カデンツ",
@@ -304,13 +319,20 @@ const GENERATED_LESSON_CHORD_TYPES = Object.entries(CHORDS).map(([kind, chord]) 
   },
 }));
 
+// 手修正ポイント: 演習用の自動生成問題セット
 const LESSON_CHALLENGES = buildLessonChallenges();
 
+// 手修正ポイント: モードごとのタイトル・説明・ラベル。タブ名は index.html 側
 const MODES = {
+  textbook: {
+    title: "教科書",
+    copy: "実習の前に、音程、コード、機能、進行、クリシェの考え方をまとめて読みます。",
+    label: "読む",
+  },
   lesson: {
-    title: "音程の地図",
-    copy: "鍵盤を押すと音名が並びます。C から半音で数える感覚をつかむと、コードとスケールが同じルールで見えてきます。",
-    label: "自由練習",
+    title: "演習",
+    copy: "コード、スケール、進行の問題を順番に解きながら、半音の地図を実際の鍵盤で確認します。",
+    label: "問題演習",
   },
   chord: {
     title: "コードビルダー",
@@ -322,6 +344,11 @@ const MODES = {
     copy: "指定されたスケールを低い音から順番に押します。半音の並びを体で覚えるモードです。",
     label: "スケールを弾く",
   },
+  practice: {
+    title: "自由練習",
+    copy: "鍵盤で自由に音を選ぶと、近いコードやスケール候補をリアルタイムに表示します。スコアや学習履歴には反映しません。",
+    label: "解析",
+  },
   diatonic: {
     title: "ダイアトニック・ビルダー",
     copy: "キーの7音から自然にできるコードを、度数の順番に並べます。音名とローマ数字をまとめて覚えます。",
@@ -331,11 +358,6 @@ const MODES = {
     title: "役割仕分け",
     copy: "ダイアトニックコードをトニック、サブドミナント、ドミナントへ分類します。コード進行の土台になる役割を見ます。",
     label: "機能を選ぶ",
-  },
-  dominant: {
-    title: "D / SD フォーカス",
-    copy: "ドミナントとサブドミナントを見分けます。解決へ向かう力と、その前に展開を作る力を分けて覚えます。",
-    label: "機能を見分ける",
   },
   progression: {
     title: "コード進行",
@@ -348,20 +370,115 @@ const MODES = {
     label: "耳で選ぶ",
   },
   mypage: {
-    title: "マイページ",
-    copy: "メニューごとの学習状況と、問題単位の成績を確認します。",
-    label: "学習履歴",
+    title: "ホーム",
+    copy: "今日の学習状況、最近の成績、メニュー別の進捗をまとめて確認します。",
+    label: "ホーム",
   },
 };
 
-const PLAY_MODES = ["lesson", "chord", "scale", "diatonic", "function", "dominant", "progression", "ear"];
+// 手修正ポイント: スコア/履歴対象モード。自由練習はここに入れないので履歴に残らない
+const PLAY_MODES = ["lesson", "chord", "scale", "diatonic", "function", "progression", "ear"];
+// 手修正ポイント: 理論ページの章データ。本文修正や章追加はここ
+const TEXTBOOK_SECTIONS = [
+  {
+    id: "interval",
+    title: "音程とスケール",
+    kicker: "基礎",
+    lead: "音楽理論の最小単位は、音名そのものではなく音と音の距離です。鍵盤では隣同士が半音、半音2つ分が全音です。",
+    points: [
+      "メジャースケールは 全・全・半・全・全・全・半 の並びで作ります。",
+      "ナチュラルマイナーは 全・半・全・全・半・全・全。3つ目の音が短3度になるため暗く聞こえます。",
+      "ペンタトニックは音数を減らして、旋律に使いやすい5音の骨格を作ります。",
+    ],
+    example: "Cメジャー: C D E F G A B C / Aナチュラルマイナー: A B C D E F G A",
+    practice: "基礎 / スケール",
+  },
+  {
+    id: "chord",
+    title: "コードの作り方",
+    kicker: "コード",
+    lead: "コードはルートから半音数で積み上げます。3度が明暗を決め、5度や7度が安定感や緊張感を変えます。",
+    points: [
+      "メジャーは 0・4・7、マイナーは 0・3・7 で作ります。",
+      "セブンス系は4音目を足して、解決したくなる響きや透明感を作ります。",
+      "sus、dim、aug は3度や5度を変えて、保留感、緊張、浮遊感を作ります。",
+    ],
+    example: "C: C E G / Cm: C Eb G / C7: C E G Bb / Cmaj7: C E G B",
+    practice: "コード / 耳トレ",
+  },
+  {
+    id: "diatonic",
+    title: "ダイアトニックコード",
+    kicker: "キー",
+    lead: "キーのスケール音だけを使って、1音おきに重ねると7つの基本コードができます。",
+    points: [
+      "メジャーキーの型は I / ii / iii / IV / V / vi / vii° です。",
+      "大文字はメジャー、小文字はマイナー、° はディミニッシュを表します。",
+      "キーが変わっても度数の型は同じなので、移調して考えられます。",
+    ],
+    example: "Cメジャー: C / Dm / Em / F / G / Am / Bdim",
+    practice: "ダイアトニック",
+  },
+  {
+    id: "function",
+    title: "コードの機能",
+    kicker: "役割",
+    lead: "コードは名前だけでなく、曲の中での役割で読むと進行が理解しやすくなります。",
+    points: [
+      "Tは安定。I、iii、vi が中心です。",
+      "SDは展開。ii、IV が中心で、Tから離れてDへ向かう準備をします。",
+      "Dは緊張。V、vii° が中心で、Iへ戻りたい力を作ります。",
+    ],
+    example: "T → SD → D → T は、安定 → 展開 → 緊張 → 解決の流れです。",
+    practice: "機能",
+  },
+  {
+    id: "progression",
+    title: "定番コード進行",
+    kicker: "進行",
+    lead: "コード進行は、度数の並びとして覚えるとキーが変わっても使えます。",
+    points: [
+      "カノン進行は I - V - vi - iii - IV - I - IV - V。",
+      "小室進行は vi - IV - V - I。切なさから明るい解決へ向かいます。",
+      "丸サ進行は IVmaj7 - III7 - vi7 - I7。セカンダリードミナントを含む都会的な進行です。",
+    ],
+    example: "Eメジャーの循環進行: E - C#m - F#m - B",
+    practice: "進行",
+  },
+  {
+    id: "cliche",
+    title: "クリシェと声部",
+    kicker: "声部変化",
+    lead: "クリシェはコード名だけでなく、コード内の1つの音が少しずつ動くことを聴く手法です。",
+    points: [
+      "I - Imaj7 - I7 - IV では、1 → 7 → b7 → 6 のような線が生まれます。",
+      "ルートが大きく動かなくても、内声が動くことで物語が進みます。",
+      "コード進行では、度数位置の理解と実用ボイシングの聴こえ方を分けて学ぶと整理しやすいです。",
+    ],
+    example: "C - Cmaj7 - C7 - F では C → B → Bb → A の下降線が見えます。",
+    practice: "進行",
+  },
+];
 const DB_NAME = "chord-quest-db";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const DEFAULT_ACCOUNT_NAME = "Guest";
 const LAST_ACCOUNT_KEY = "chordQuest:lastAccountId";
+const DAILY_GOALS = {
+  attempts: 10,
+  accuracy: 70,
+  progressions: 3,
+};
+const LEVEL_TITLES = [
+  "音程の入口",
+  "コード探索中",
+  "スケール練習中",
+  "耳トレ強化中",
+  "コード進行マスター",
+];
 
+// 手修正ポイント: 画面全体の状態。自由練習の選択音も selected に入るが record は呼ばない
 const state = {
-  mode: "lesson",
+  mode: "mypage",
   selected: [],
   target: null,
   db: null,
@@ -377,12 +494,15 @@ const state = {
   lessonStep: 0,
   followQuizOrder: false,
   progressionPlayback: "degree",
+  keyLight: true,
   solved: false,
 };
 
+// 手修正ポイント: DOM参照一覧。HTMLの id/class を変えたらここも合わせる
 const els = {
   gamePanel: document.querySelector(".game-panel"),
   mypagePanel: document.querySelector("#mypage-panel"),
+  textbookPanel: document.querySelector("#textbook-panel"),
   keyboard: document.querySelector("#keyboard"),
   answerStrip: document.querySelector("#answer-strip"),
   tabs: document.querySelectorAll(".tab"),
@@ -391,12 +511,14 @@ const els = {
   promptLabel: document.querySelector("#prompt-label"),
   prompt: document.querySelector("#prompt"),
   playTarget: document.querySelector("#play-target"),
+  keyLightButtons: document.querySelectorAll("[data-key-light]"),
   solvedStatus: document.querySelector("#solved-status"),
   toggleHint: document.querySelector("#toggle-hint"),
   hintPanel: document.querySelector("#hint-panel"),
   hintCost: document.querySelector("#hint-cost"),
   conceptBoard: document.querySelector("#concept-board"),
   check: document.querySelector("#check-answer"),
+  playAnswer: document.querySelector("#play-answer"),
   clear: document.querySelector("#clear-answer"),
   next: document.querySelector("#next-challenge"),
   score: document.querySelector("#score"),
@@ -404,11 +526,23 @@ const els = {
   correct: document.querySelector("#correct"),
   attempts: document.querySelector("#attempts"),
   accuracy: document.querySelector("#accuracy"),
+  levelRing: document.querySelector("#level-ring"),
+  levelNumber: document.querySelector("#level-number"),
+  levelTitle: document.querySelector("#level-title"),
+  xpText: document.querySelector("#xp-text"),
+  xpFill: document.querySelector("#xp-fill"),
+  goalAttemptsDot: document.querySelector("#goal-attempts-dot"),
+  goalAttemptsValue: document.querySelector("#goal-attempts-value"),
+  goalAccuracyDot: document.querySelector("#goal-accuracy-dot"),
+  goalAccuracyValue: document.querySelector("#goal-accuracy-value"),
+  goalProgressionsDot: document.querySelector("#goal-progressions-dot"),
+  goalProgressionsValue: document.querySelector("#goal-progressions-value"),
   solvedCount: document.querySelector("#solved-count"),
   accountSelect: document.querySelector("#account-select"),
   createAccount: document.querySelector("#create-account"),
 };
 
+// 手修正ポイント: 起動処理。DB準備、鍵盤生成、イベント登録、初期モード表示の順
 async function init() {
   state.db = await openGameDb();
   await seedQuizBank();
@@ -417,9 +551,10 @@ async function init() {
   bindEvents();
   renderAccountSelect();
   await selectInitialAccount();
-  await setMode("lesson");
+  await setMode("mypage");
 }
 
+// 手修正ポイント: クリック/変更イベントの入口。UI操作を追加するならまずここ
 function bindEvents() {
   els.tabs.forEach((tab) => {
     tab.addEventListener("click", () => setMode(tab.dataset.mode));
@@ -434,7 +569,16 @@ function bindEvents() {
     if (mode) await renderMyPageDetail(mode);
     if (target?.closest("[data-history-back]")) await renderMyPageTop();
   });
+  els.textbookPanel.addEventListener("click", (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    const section = target?.closest("[data-textbook-section]")?.dataset.textbookSection;
+    if (section) renderTextbook(section);
+  });
   els.playTarget.addEventListener("click", () => playTarget());
+  els.playAnswer.addEventListener("click", () => playSelectedAnswer());
+  els.keyLightButtons.forEach((button) => {
+    button.addEventListener("click", () => setKeyLight(button.dataset.keyLight === "on"));
+  });
   els.toggleHint.addEventListener("click", () => toggleHint());
   els.check.addEventListener("click", () => checkAnswer());
   els.clear.addEventListener("click", () => {
@@ -445,6 +589,7 @@ function bindEvents() {
     state.solved = false;
     renderAnswer();
     renderConceptBoard();
+    renderPracticeAnalysis();
     renderHint();
     updateControls();
     updateKeyState();
@@ -465,18 +610,39 @@ function openGameDb() {
       if (!db.objectStoreNames.contains("quizzes")) {
         const store = db.createObjectStore("quizzes", { keyPath: "id" });
         store.createIndex("mode", "mode", { unique: false });
+      } else {
+        const store = request.transaction.objectStore("quizzes");
+        if (!store.indexNames.contains("mode")) {
+          store.createIndex("mode", "mode", { unique: false });
+        }
       }
 
       if (!db.objectStoreNames.contains("progress")) {
         const store = db.createObjectStore("progress", { keyPath: "id" });
         store.createIndex("accountId", "accountId", { unique: false });
         store.createIndex("quizId", "quizId", { unique: false });
+      } else {
+        const store = request.transaction.objectStore("progress");
+        if (!store.indexNames.contains("accountId")) {
+          store.createIndex("accountId", "accountId", { unique: false });
+        }
+        if (!store.indexNames.contains("quizId")) {
+          store.createIndex("quizId", "quizId", { unique: false });
+        }
       }
 
       if (!db.objectStoreNames.contains("attemptsLog")) {
         const store = db.createObjectStore("attemptsLog", { keyPath: "id", autoIncrement: true });
         store.createIndex("accountId", "accountId", { unique: false });
         store.createIndex("quizId", "quizId", { unique: false });
+      } else {
+        const store = request.transaction.objectStore("attemptsLog");
+        if (!store.indexNames.contains("accountId")) {
+          store.createIndex("accountId", "accountId", { unique: false });
+        }
+        if (!store.indexNames.contains("quizId")) {
+          store.createIndex("quizId", "quizId", { unique: false });
+        }
       }
     };
     request.onsuccess = () => resolve(request.result);
@@ -557,9 +723,6 @@ function buildQuizBank() {
   });
 
   ["C", "G", "D", "A", "E", "F"].forEach((root) => {
-    ["D", "SD"].forEach((role) => {
-      quizzes.push({ id: `dominant-${root}-${role}`, mode: "dominant", payload: { root, role } });
-    });
     PROGRESSION_PATTERNS.forEach((_, patternIndex) => {
       quizzes.push({ id: `progression-${root}-${patternIndex}`, mode: "progression", payload: { root, patternIndex } });
     });
@@ -612,6 +775,10 @@ async function switchAccount(accountId) {
   await applyAccount(account);
   if (state.mode === "mypage") {
     await renderMyPageTop();
+  } else if (state.mode === "textbook") {
+    renderTextbook();
+  } else if (state.mode === "practice") {
+    showPracticeMode();
   } else {
     await nextChallenge();
   }
@@ -626,6 +793,7 @@ async function applyAccount(account) {
   localStorage.setItem(LAST_ACCOUNT_KEY, account.id);
   els.accountSelect.value = account.id;
   await refreshSolvedCount();
+  await refreshLearningSummary();
   renderStats();
 }
 
@@ -639,6 +807,10 @@ async function createAccountFromPrompt() {
   await applyAccount(account);
   if (state.mode === "mypage") {
     await renderMyPageTop();
+  } else if (state.mode === "textbook") {
+    renderTextbook();
+  } else if (state.mode === "practice") {
+    showPracticeMode();
   } else {
     await nextChallenge();
   }
@@ -753,24 +925,6 @@ function targetFromQuiz(quiz) {
     };
   }
 
-  if (quiz.mode === "dominant") {
-    const chords = diatonicChords(payload.root);
-    return {
-      id: quiz.id,
-      root: payload.root,
-      role: payload.role,
-      chords,
-      choices: shuffleRandom(chords),
-      notes: chordToneNames(chords.find((chord) => chord.role === payload.role)),
-      prompt: `${payload.root}メジャーで ${FUNCTION_LABELS[payload.role].name} を全部選ぶ`,
-      copy:
-        payload.role === "D"
-          ? "ドミナントは I へ戻りたくなる緊張を作ります。V と vii° が中心です。"
-          : "サブドミナントは安定から離れて、ドミナントへ向かう展開を作ります。ii と IV が中心です。",
-      type: "dominant",
-    };
-  }
-
   if (quiz.mode === "progression") {
     const pattern = PROGRESSION_PATTERNS[payload.patternIndex];
     const chords = progressionChords(payload.root, pattern);
@@ -802,12 +956,13 @@ function targetFromQuiz(quiz) {
   };
 }
 
+// 手修正ポイント: 鍵盤ボタンの生成。見た目は CSS、押した時の処理は selectNote
 function renderKeyboard() {
   WHITE_SEQUENCE.forEach((note, index) => {
     const button = document.createElement("button");
     button.className = "key white";
     button.dataset.note = note;
-    button.dataset.octave = index < 7 ? "4" : "5";
+    button.dataset.octave = String(4 + Math.floor(index / 7));
     button.innerHTML = `<span>${note}</span>`;
     button.addEventListener("click", () => selectNote(note, button.dataset.octave));
     els.keyboard.appendChild(button);
@@ -817,7 +972,7 @@ function renderKeyboard() {
     const button = document.createElement("button");
     button.className = "key black";
     button.dataset.note = note;
-    button.dataset.octave = slot < 7 ? "4" : "5";
+    button.dataset.octave = String(4 + Math.floor((slot - 1) / 7));
     button.style.left = `${(slot / 15) * 100}%`;
     button.innerHTML = `<span>${note}</span>`;
     button.addEventListener("click", () => selectNote(note, button.dataset.octave));
@@ -825,10 +980,13 @@ function renderKeyboard() {
   });
 }
 
+// 手修正ポイント: モード切替の中心。自由練習だけ専用クラスを付けて固定レイアウトにする
 async function setMode(mode) {
   state.mode = mode;
   state.selected = [];
   state.followQuizOrder = false;
+  document.body.classList.toggle("practice-active", mode === "practice");
+  els.gamePanel.classList.toggle("practice-mode", mode === "practice");
   if (mode === "lesson") {
     state.lessonStep = 0;
   }
@@ -836,15 +994,42 @@ async function setMode(mode) {
   els.modeTitle.textContent = MODES[mode].title;
   els.modeCopy.textContent = MODES[mode].copy;
   els.promptLabel.textContent = MODES[mode].label;
-  els.gamePanel.classList.toggle("hidden", mode === "mypage");
+  els.gamePanel.classList.toggle("hidden", mode === "mypage" || mode === "textbook");
   els.mypagePanel.classList.toggle("hidden", mode !== "mypage");
+  els.textbookPanel.classList.toggle("hidden", mode !== "textbook");
   if (mode === "mypage") {
     await renderMyPageTop();
+    return;
+  }
+  if (mode === "textbook") {
+    renderTextbook();
+    return;
+  }
+  if (mode === "practice") {
+    showPracticeMode();
     return;
   }
   await nextChallenge();
 }
 
+// 手修正ポイント: 自由練習の初期表示。スコア/履歴用 target は持たない
+function showPracticeMode() {
+  state.target = null;
+  state.selected = [];
+  state.hintCount = 0;
+  state.solved = false;
+  els.prompt.textContent = "鍵盤を自由に押して響きを調べる";
+  els.promptLabel.textContent = MODES.practice.label;
+  els.modeCopy.textContent = MODES.practice.copy;
+  renderAnswer();
+  renderPracticeAnalysis();
+  renderSolvedStatus();
+  updateHintVisibility();
+  updateControls();
+  updateKeyState();
+}
+
+// 手修正ポイント: 問題モードの次問取得。自由練習では呼ばない
 async function nextChallenge() {
   state.selected = [];
   state.hintCount = 0;
@@ -893,9 +1078,22 @@ async function openQuizFromHistory(quizId) {
   els.promptLabel.textContent = MODES[quiz.mode].label;
   els.gamePanel.classList.remove("hidden");
   els.mypagePanel.classList.add("hidden");
+  els.textbookPanel.classList.add("hidden");
   await showQuiz(quiz);
 }
 
+async function openProgressionPattern(patternIndex) {
+  if (!state.target?.root || Number.isNaN(patternIndex)) return;
+  const quizId = `progression-${state.target.root}-${patternIndex}`;
+  const quiz = await requestToPromise(state.db.transaction("quizzes", "readonly").objectStore("quizzes").get(quizId));
+  if (!quiz) return;
+  state.selected = [];
+  state.hintCount = 0;
+  state.solved = false;
+  await showQuiz(quiz);
+}
+
+// 手修正ポイント: 鍵盤クリック時の分岐。自由練習は同じピッチ単位でトグルし、問題モードは採点用に保持
 function selectNote(note, octave) {
   if (usesConceptBoard()) return;
 
@@ -903,7 +1101,11 @@ function selectNote(note, octave) {
   const pitch = `${note}${octave}`;
   playNote(note, Number(octave), 0, 0.35);
 
-  if ((state.mode === "lesson" && state.target?.answerMode === "scale") || state.mode === "scale") {
+  if (state.mode === "practice") {
+    state.selected = state.selected.some((item) => item === pitch)
+      ? state.selected.filter((item) => item !== pitch)
+      : sortPitches([...state.selected, pitch]);
+  } else if ((state.mode === "lesson" && state.target?.answerMode === "scale") || state.mode === "scale") {
     state.selected = state.selected.includes(pitch)
       ? state.selected.filter((item) => item !== pitch)
       : [...state.selected, pitch];
@@ -914,12 +1116,17 @@ function selectNote(note, octave) {
   }
 
   renderAnswer();
+  renderPracticeAnalysis();
   renderHint();
   updateKeyState();
 }
 
+// 手修正ポイント: 選択中の音/採点結果の表示。自由練習では固定高の横並びリストになる
 function renderAnswer(message = "", status = "") {
   els.answerStrip.innerHTML = "";
+  if (els.playAnswer) {
+    els.playAnswer.disabled = !canPlaySelectedAnswer();
+  }
   if (message) {
     const feedback = document.createElement("div");
     feedback.className = `feedback-banner ${status || "neutral"}`;
@@ -932,15 +1139,6 @@ function renderAnswer(message = "", status = "") {
       const hint = document.createElement("span");
       hint.className = "hint";
       hint.textContent = "カードを押して I から順番に並べる";
-      els.answerStrip.appendChild(hint);
-      return;
-    }
-
-    if (state.mode === "dominant") {
-      const expectedCount = state.target.chords.filter((chord) => chord.role === state.target.role).length;
-      const hint = document.createElement("span");
-      hint.className = "hint";
-      hint.textContent = `${FUNCTION_LABELS[state.target.role].name}をすべて選ぶ ${state.selected.length}/${expectedCount}`;
       els.answerStrip.appendChild(hint);
       return;
     }
@@ -969,7 +1167,7 @@ function renderAnswer(message = "", status = "") {
   if (!message && values.length === 0) {
     const hint = document.createElement("span");
     hint.className = "hint";
-    hint.textContent = "鍵盤を押して答えを作る";
+    hint.textContent = state.mode === "practice" ? "鍵盤を押すとコードやスケール候補を表示します" : "鍵盤を押して答えを作る";
     els.answerStrip.appendChild(hint);
   }
 
@@ -981,6 +1179,56 @@ function renderAnswer(message = "", status = "") {
   });
 }
 
+// 手修正ポイント: 自由練習の解析パネル描画。サマリ、コード候補、スケール候補をここで組み立てる
+function renderPracticeAnalysis() {
+  if (state.mode !== "practice") return;
+
+  els.conceptBoard.classList.remove("hidden");
+  els.keyboard.classList.remove("hidden");
+
+  const noteNames = selectedNoteNames();
+  const chordMatches = analyzeChordMatches(noteNames);
+  const scaleMatches = analyzeScaleMatches(noteNames);
+
+  els.conceptBoard.innerHTML = `
+    <div class="practice-board">
+      <div class="practice-summary">
+        <span>選択中</span>
+        <strong>${noteNames.length ? noteNames.join(" / ") : "--"}</strong>
+        <p>${practiceIntervalText(noteNames)}</p>
+      </div>
+      <div class="practice-results">
+        ${renderPracticeResultColumn("コード候補", chordMatches, "3音以上を選ぶとコード候補を表示します")}
+        ${renderPracticeResultColumn("スケール候補", scaleMatches, "5音以上を選ぶとスケール候補を表示します")}
+      </div>
+    </div>
+  `;
+}
+
+// 手修正ポイント: 自由練習の候補列。カード内の表示文言や件数表示を変えるならここ
+function renderPracticeResultColumn(title, matches, emptyText) {
+  const rows = matches.length
+    ? matches
+        .map(
+          (match) => `
+            <div class="practice-match ${match.exact ? "exact" : ""}">
+              <span>${match.exact ? "一致" : `${match.matched}/${match.total}音`}</span>
+              <strong>${match.name}</strong>
+              <small>${match.copy}</small>
+            </div>
+          `,
+        )
+        .join("")
+    : `<p class="practice-empty">${emptyText}</p>`;
+  return `
+    <section>
+      <h3>${title}</h3>
+      <div class="practice-match-list">${rows}</div>
+    </section>
+  `;
+}
+
+// 手修正ポイント: 鍵盤ではなくカードボードを使うモードの描画入口。自由練習は renderPracticeAnalysis を使う
 function renderConceptBoard() {
   if (!usesConceptBoard()) {
     els.conceptBoard.classList.add("hidden");
@@ -994,11 +1242,6 @@ function renderConceptBoard() {
 
   if (state.mode === "diatonic") {
     renderDiatonicBoard();
-    return;
-  }
-
-  if (state.mode === "dominant") {
-    renderDominantBoard();
     return;
   }
 
@@ -1104,77 +1347,58 @@ function renderFunctionBoard() {
   bindConceptButtons();
 }
 
-function renderDominantBoard() {
-  const selectedIds = new Set(state.selected);
-  els.conceptBoard.innerHTML = `
-    <div class="role-focus">
-      <div>
-        <span>今回の役割</span>
-        <strong>${FUNCTION_LABELS[state.target.role].name}</strong>
-        <small>${state.target.role}</small>
-      </div>
-      <p>${state.target.role === "D" ? "V と vii° を探します。" : "ii と IV を探します。"}</p>
-    </div>
-    <div class="card-bank">
-      ${state.target.choices
-        .map(
-          (chord) => `
-            <button class="chord-card selectable ${selectedIds.has(chord.id) ? "selected" : ""}" data-action="toggle-dominant" data-id="${chord.id}">
-              <span>${chord.degree}</span>
-              <strong>${chord.symbol}</strong>
-            </button>
-          `,
-        )
-        .join("")}
-    </div>
-  `;
-
-  bindConceptButtons();
-}
-
 function renderProgressionBoard() {
   const selectedChords = state.selected.map((id) => diatonicChoiceById(id));
   const remaining = state.target.choices.filter((chord) => !state.selected.includes(chord.id));
   const pattern = state.target.pattern;
 
   els.conceptBoard.innerHTML = `
-    <div class="progression-study">
-      <div class="progression-info">
-        <span>${pattern.category || "進行"}</span>
-        <strong>${pattern.name}</strong>
-        <p>${pattern.why || pattern.copy}</p>
+    <div class="progression-layout">
+      <div class="progression-main">
+        <div class="progression-study">
+          <div class="progression-info">
+            <span>${pattern.category || "進行"}</span>
+            <strong>${pattern.name}</strong>
+            <p>${pattern.why || pattern.copy}</p>
+          </div>
+          <div class="playback-toggle" role="group" aria-label="再生モード">
+            <button class="${state.progressionPlayback === "degree" ? "active" : ""}" data-action="set-playback" data-playback="degree">度数位置</button>
+            <button class="${state.progressionPlayback === "voicing" ? "active" : ""}" data-action="set-playback" data-playback="voicing">実用ボイシング</button>
+          </div>
+        </div>
+        <div class="progression-work">
+          <div class="progression-row">
+            ${state.target.progression
+              .map(
+                (chord, index) => `
+                  <div class="degree-slot ${selectedChords[index]?.id === chord.id ? "filled correct-slot" : selectedChords[index] ? "filled" : ""}">
+                    <span>${chord.degree}</span>
+                    <em>${roleName(chord.role)}</em>
+                    <strong>${selectedChords[index]?.symbol || "?"}</strong>
+                  </div>
+                `,
+              )
+              .join('<div class="progression-arrow">→</div>')}
+          </div>
+        </div>
+        <div class="progression-card-bank">
+          <p class="mini-label">コードカード（クリックして選択）</p>
+          <div class="card-bank">
+            ${remaining
+              .map(
+                (chord) => `
+                  <button class="chord-card" data-action="pick-progression" data-id="${chord.id}">
+                    <strong>${chord.symbol}</strong>
+                  </button>
+                `,
+              )
+              .join("")}
+          </div>
+        </div>
+        ${renderVoiceLine(pattern)}
       </div>
-      <div class="playback-toggle" role="group" aria-label="再生モード">
-        <button class="${state.progressionPlayback === "degree" ? "active" : ""}" data-action="set-playback" data-playback="degree">度数位置</button>
-        <button class="${state.progressionPlayback === "voicing" ? "active" : ""}" data-action="set-playback" data-playback="voicing">実用ボイシング</button>
-      </div>
+      ${renderProgressionLibrary(state.target.root)}
     </div>
-    <div class="progression-row">
-      ${state.target.progression
-        .map(
-          (chord, index) => `
-            <div class="degree-slot ${selectedChords[index]?.id === chord.id ? "filled correct-slot" : selectedChords[index] ? "filled" : ""}">
-              <span>${roleName(chord.role)}</span>
-              <strong>${selectedChords[index]?.symbol || "?"}</strong>
-              <small>${chord.degree}</small>
-            </div>
-          `,
-        )
-        .join("")}
-    </div>
-    <div class="card-bank">
-      ${remaining
-        .map(
-          (chord) => `
-            <button class="chord-card" data-action="pick-progression" data-id="${chord.id}">
-              <strong>${chord.symbol}</strong>
-            </button>
-          `,
-        )
-        .join("")}
-    </div>
-    ${renderVoiceLine(pattern)}
-    ${renderProgressionLibrary(state.target.root)}
   `;
 
   bindConceptButtons();
@@ -1196,17 +1420,17 @@ function renderProgressionLibrary(root) {
     <div class="progression-library">
       <p class="mini-label">進行ライブラリ</p>
       <div>
-        ${PROGRESSION_PATTERNS.map((pattern) => {
+        ${PROGRESSION_PATTERNS.map((pattern, index) => {
           const symbols = progressionChords(root, pattern)
             .filter((chord) => !chord.isDummy)
             .map((chord) => chord.symbol)
             .join(" - ");
           return `
-            <article>
+            <button type="button" class="progression-library-item" data-action="open-progression-pattern" data-pattern-index="${index}">
               <span>${pattern.category || "進行"}</span>
               <strong>${pattern.name}</strong>
               <small>${symbols}</small>
-            </article>
+            </button>
           `;
         }).join("")}
       </div>
@@ -1222,6 +1446,11 @@ function bindConceptButtons() {
       if (action === "set-playback") {
         state.progressionPlayback = button.dataset.playback;
         renderConceptBoard();
+        return;
+      }
+
+      if (action === "open-progression-pattern") {
+        openProgressionPattern(Number(button.dataset.patternIndex));
         return;
       }
 
@@ -1243,12 +1472,6 @@ function bindConceptButtons() {
       if (action === "assign-function" && state.selected[0]) {
         state.target.assignments[state.selected[0]] = role;
         state.selected = [];
-        renderAnswer();
-        renderConceptBoard();
-      }
-
-      if (action === "toggle-dominant") {
-        state.selected = state.selected.includes(id) ? state.selected.filter((item) => item !== id) : [...state.selected, id];
         renderAnswer();
         renderConceptBoard();
       }
@@ -1369,27 +1592,6 @@ function theoryCardsForTarget() {
     ];
   }
 
-  if (state.mode === "dominant") {
-    return [
-      {
-        title: "ドミナント",
-        copy: "<strong>V</strong> と <strong>vii°</strong> は I に戻りたくなる緊張を作ります。曲の区切りや解決前によく出ます。",
-      },
-      {
-        title: "サブドミナント",
-        copy: "<strong>ii</strong> と <strong>IV</strong> は T から離れて、D へ向かう準備を作ります。",
-      },
-      {
-        title: "見分け方",
-        copy: "まずローマ数字を見ます。D は <strong>V / vii°</strong>、SD は <strong>ii / IV</strong> として覚えます。",
-      },
-      {
-        title: "コード進行での位置",
-        copy: "よくある流れは <strong>T → SD → D → T</strong> です。SD が展開し、D が解決へ押し出します。",
-      },
-    ];
-  }
-
   if (state.mode === "progression") {
     return [
       {
@@ -1452,8 +1654,16 @@ function updateHintVisibility() {
       : "ヒント1つごとに正解点が25%減";
 }
 
+// 手修正ポイント: ボタン表示/非表示の集約。自由練習では判定・次へ・ヒント・お手本を隠す
 function updateControls() {
-  els.check.classList.toggle("hidden", state.solved);
+  const isPractice = state.mode === "practice";
+  els.check.classList.toggle("hidden", state.solved || isPractice);
+  els.next.classList.toggle("hidden", isPractice);
+  els.toggleHint.classList.toggle("hidden", isPractice);
+  els.hintCost.classList.toggle("hidden", isPractice);
+  els.playTarget.classList.toggle("hidden", isPractice);
+  els.solvedStatus.classList.toggle("hidden", isPractice);
+  els.playAnswer.disabled = !canPlaySelectedAnswer();
   updateHintVisibility();
 }
 
@@ -1463,6 +1673,7 @@ function updateKeyState() {
   });
 }
 
+// 手修正ポイント: 採点処理。自由練習はここを通らないのでスコアに反映されない
 function checkAnswer() {
   if (state.mode === "lesson") {
     const ok =
@@ -1516,17 +1727,6 @@ function checkAnswer() {
     return;
   }
 
-  if (state.mode === "dominant") {
-    const expected = state.target.chords.filter((chord) => chord.role === state.target.role).map((chord) => chord.id);
-    const ok = sameSet(state.selected, expected);
-    record(ok);
-    state.solved = ok;
-    renderAnswer(ok ? `${FUNCTION_LABELS[state.target.role].name}を選べました` : "不正解。もう一度試してください。", ok ? "correct" : "incorrect");
-    renderConceptBoard();
-    updateControls();
-    return;
-  }
-
   if (state.mode === "progression") {
     const expected = state.target.progression.map((chord) => chord.id);
     const ok = arraysEqual(state.selected, expected);
@@ -1547,6 +1747,7 @@ function checkAnswer() {
   }
 }
 
+// 手修正ポイント: スコア/連続正解/DB保存の入口。採点対象モードだけが呼ぶ
 function record(ok) {
   state.attempts += 1;
   if (ok) {
@@ -1621,6 +1822,9 @@ async function persistAnswer(ok) {
   if (ok && !previous?.solved && state.account?.id === accountId) {
     await refreshSolvedCount();
   }
+  if (state.account?.id === accountId) {
+    await refreshLearningSummary();
+  }
   if (state.target?.id === targetId) {
     renderSolvedStatus();
   }
@@ -1652,7 +1856,147 @@ async function refreshSolvedCount() {
   state.solvedCount = records.filter((record) => record.solved).length;
 }
 
+async function refreshLearningSummary() {
+  if (!state.account) {
+    renderLearningSummary(createEmptyLearningSummary());
+    return;
+  }
+
+  const progressRecords = await requestToPromise(
+    state.db.transaction("progress", "readonly").objectStore("progress").index("accountId").getAll(state.account.id),
+  );
+  const attemptRecords = await requestToPromise(
+    state.db.transaction("attemptsLog", "readonly").objectStore("attemptsLog").index("accountId").getAll(state.account.id),
+  );
+  const todayAttempts = attemptRecords.filter((record) => isToday(record.createdAt));
+  const todayCorrect = todayAttempts.filter((record) => record.ok).length;
+  const todayAccuracy = todayAttempts.length ? Math.round((todayCorrect / todayAttempts.length) * 100) : null;
+  const solvedRecords = progressRecords.filter((record) => record.solved);
+  const solvedProgressions = solvedRecords.filter((record) => record.mode === "progression").length;
+  const totalXp =
+    (state.account.correct || 0) * 30 +
+    (state.account.attempts || 0) * 5 +
+    solvedRecords.length * 20 +
+    solvedProgressions * 15;
+
+  renderLearningSummary({
+    level: calculateLevel(totalXp),
+    goals: {
+      attempts: todayAttempts.length,
+      accuracy: todayAccuracy,
+      progressions: countTodayNewProgressions(attemptRecords, progressRecords),
+    },
+  });
+}
+
+function createEmptyLearningSummary() {
+  return {
+    level: calculateLevel(0),
+    goals: {
+      attempts: 0,
+      accuracy: null,
+      progressions: 0,
+    },
+  };
+}
+
+function calculateLevel(totalXp) {
+  let level = 1;
+  let current = Math.max(0, totalXp);
+  let next = xpForLevel(level);
+
+  while (current >= next) {
+    current -= next;
+    level += 1;
+    next = xpForLevel(level);
+  }
+
+  return {
+    level,
+    current,
+    next,
+    ratio: next ? current / next : 0,
+    title: LEVEL_TITLES[Math.min(level - 1, LEVEL_TITLES.length - 1)],
+  };
+}
+
+function xpForLevel(level) {
+  return 120 + (level - 1) * 60;
+}
+
+function countTodayNewProgressions(attemptRecords, progressRecords) {
+  const firstCorrectByQuiz = new Map();
+  attemptRecords
+    .filter((record) => record.mode === "progression" && record.ok && record.createdAt)
+    .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+    .forEach((record) => {
+      if (!firstCorrectByQuiz.has(record.quizId)) {
+        firstCorrectByQuiz.set(record.quizId, record.createdAt);
+      }
+    });
+
+  let count = [...firstCorrectByQuiz.values()].filter((createdAt) => isToday(createdAt)).length;
+  const loggedQuizIds = new Set(firstCorrectByQuiz.keys());
+  progressRecords.forEach((record) => {
+    if (record.mode === "progression" && record.solved && !loggedQuizIds.has(record.quizId) && isToday(record.lastCorrectAt)) {
+      count += 1;
+    }
+  });
+  return count;
+}
+
+function isToday(value) {
+  if (!value) return false;
+  const date = new Date(value);
+  const today = new Date();
+  return (
+    date.getFullYear() === today.getFullYear() &&
+    date.getMonth() === today.getMonth() &&
+    date.getDate() === today.getDate()
+  );
+}
+
+function renderLearningSummary(summary) {
+  const levelProgress = Math.round(summary.level.ratio * 100);
+  els.levelNumber.textContent = `Lv. ${summary.level.level}`;
+  els.levelTitle.textContent = summary.level.title;
+  els.xpText.textContent = `${summary.level.current} / ${summary.level.next} XP`;
+  els.levelRing.style.setProperty("--level-progress", `${levelProgress}%`);
+  els.xpFill.style.setProperty("--xp-progress", `${levelProgress}%`);
+
+  renderGoal(
+    els.goalAttemptsDot,
+    els.goalAttemptsValue,
+    summary.goals.attempts >= DAILY_GOALS.attempts,
+    `${Math.min(summary.goals.attempts, DAILY_GOALS.attempts)} / ${DAILY_GOALS.attempts}`,
+  );
+  renderGoal(
+    els.goalAccuracyDot,
+    els.goalAccuracyValue,
+    summary.goals.accuracy !== null && summary.goals.accuracy >= DAILY_GOALS.accuracy,
+    summary.goals.accuracy === null ? "--" : `${summary.goals.accuracy}%`,
+  );
+  renderGoal(
+    els.goalProgressionsDot,
+    els.goalProgressionsValue,
+    summary.goals.progressions >= DAILY_GOALS.progressions,
+    `${Math.min(summary.goals.progressions, DAILY_GOALS.progressions)} / ${DAILY_GOALS.progressions}`,
+  );
+}
+
+function renderGoal(dot, valueEl, done, value) {
+  dot.classList.toggle("done", done);
+  dot.textContent = done ? "✓" : "";
+  valueEl.textContent = value;
+}
+
 function renderSolvedStatus() {
+  if (state.mode === "practice") {
+    els.solvedStatus.textContent = "";
+    els.solvedStatus.classList.remove("solved", "missed");
+    return;
+  }
+
   const progress = state.target?.progress;
   els.solvedStatus.classList.toggle("solved", Boolean(progress?.solved));
   els.solvedStatus.classList.toggle("missed", Boolean(progress && !progress.solved));
@@ -1670,9 +2014,50 @@ function renderSolvedStatus() {
   els.solvedStatus.textContent = "未挑戦";
 }
 
+function renderTextbook(activeId = TEXTBOOK_SECTIONS[0].id) {
+  const active = TEXTBOOK_SECTIONS.find((section) => section.id === activeId) || TEXTBOOK_SECTIONS[0];
+  els.textbookPanel.innerHTML = `
+    <div class="textbook-layout">
+      <nav class="textbook-nav" aria-label="教科書の章">
+        ${TEXTBOOK_SECTIONS.map(
+          (section) => `
+            <button class="${section.id === active.id ? "active" : ""}" type="button" data-textbook-section="${section.id}">
+              <span>${section.kicker}</span>
+              <strong>${section.title}</strong>
+            </button>
+          `,
+        ).join("")}
+      </nav>
+      <article class="textbook-article">
+        <p class="label">${active.kicker}</p>
+        <h2>${active.title}</h2>
+        <p class="textbook-lead">${active.lead}</p>
+        <div class="textbook-points">
+          ${active.points.map((point) => `<div><span></span><p>${point}</p></div>`).join("")}
+        </div>
+        <div class="textbook-example">
+          <span>例</span>
+          <strong>${active.example}</strong>
+        </div>
+        <div class="textbook-practice">
+          <span>対応する実習</span>
+          <strong>${active.practice}</strong>
+        </div>
+      </article>
+    </div>
+  `;
+}
+
 async function renderMyPageTop() {
   const { quizzes, progress } = await loadLearningRecords();
   const summaries = PLAY_MODES.map((mode) => summarizeMode(mode, quizzes, progress));
+  const attemptRecords = state.account
+    ? await requestToPromise(state.db.transaction("attemptsLog", "readonly").objectStore("attemptsLog").index("accountId").getAll(state.account.id))
+    : [];
+  const todayAttempts = attemptRecords.filter((record) => isToday(record.createdAt));
+  const todayCorrect = todayAttempts.filter((record) => record.ok).length;
+  const todayAccuracy = todayAttempts.length ? `${Math.round((todayCorrect / todayAttempts.length) * 100)}%` : "--";
+  const lastAttempt = [...attemptRecords].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
   const total = summaries.reduce(
     (sum, item) => ({
       quizzes: sum.quizzes + item.total,
@@ -1686,9 +2071,27 @@ async function renderMyPageTop() {
   els.mypagePanel.innerHTML = `
     <div class="mypage-head">
       <div>
-        <p class="label">Learning History</p>
-        <h2>${escapeHtml(state.account?.name || DEFAULT_ACCOUNT_NAME)} の成績</h2>
-        <p>全${total.quizzes}問中 ${total.solved}問を正解済み。挑戦 ${total.attempts}回、正解 ${total.correct}回。</p>
+        <p class="label">ホーム</p>
+        <h2>今日の学習状況</h2>
+        <p><span>${escapeHtml(state.account?.name || DEFAULT_ACCOUNT_NAME)}</span><strong>全${total.quizzes}問中 ${total.solved}問を正解済み</strong></p>
+      </div>
+    </div>
+    <div class="home-overview">
+      <div>
+        <span>今日の挑戦</span>
+        <strong>${todayAttempts.length}</strong>
+      </div>
+      <div>
+        <span>今日の正解率</span>
+        <strong>${todayAccuracy}</strong>
+      </div>
+      <div>
+        <span>累計正解</span>
+        <strong>${total.correct}</strong>
+      </div>
+      <div>
+        <span>最近の成績</span>
+        <strong>${lastAttempt ? (lastAttempt.ok ? "正解" : "復習中") : "--"}</strong>
       </div>
     </div>
     <div class="mypage-grid">
@@ -1734,13 +2137,13 @@ async function renderMyPageDetail(mode) {
   els.mypagePanel.innerHTML = `
     <div class="mypage-head">
       <div>
-        <p class="label">Menu Detail</p>
+        <p class="label">Menu Progress</p>
         <h2>${escapeHtml(MODES[mode].title)}</h2>
         <p>正解済み ${summary.solved}/${summary.total}問。挑戦 ${summary.attempts}回、正解 ${summary.correct}回、精度 ${summary.accuracy}。</p>
       </div>
     </div>
     <div class="detail-toolbar">
-      <button type="button" data-history-back>トップへ戻る</button>
+      <button type="button" data-history-back>ホームへ戻る</button>
     </div>
     ${
       rows.length
@@ -1821,13 +2224,13 @@ function renderStats() {
   els.solvedCount.textContent = state.solvedCount;
 }
 
+// 手修正ポイント: お手本再生。進行/スケール/コードで鳴らし方を分岐
 function playTarget() {
   ensureAudio();
   if (!state.target) return;
 
   if (state.mode === "progression") {
-    playChordSequence(state.target.progression, 0.55, state.progressionPlayback);
-    flashKeys(state.target.progression.flatMap((chord) => chordToneNames(chord)));
+    flashKeys(playChordSequence(state.target.progression, 0.55, state.progressionPlayback));
     return;
   }
 
@@ -1835,9 +2238,61 @@ function playTarget() {
   if (state.mode === "scale" || state.mode === "diatonic" || (state.mode === "lesson" && state.target.answerMode === "scale")) {
     notes.forEach((pitch, index) => playNote(pitchNote(pitch), pitchOctave(pitch), index * 0.22, 0.2));
   } else {
-    notes.forEach((note) => playNote(note, 4, 0, 0.75));
+    chordPitchesFromTarget(state.target).forEach((pitch) => playNote(pitchNote(pitch), pitchOctave(pitch), 0, 0.75));
   }
-  flashKeys(notes);
+  flashKeys(state.mode === "scale" || state.mode === "diatonic" || (state.mode === "lesson" && state.target.answerMode === "scale") ? notes : chordPitchesFromTarget(state.target));
+}
+
+function setKeyLight(enabled) {
+  state.keyLight = enabled;
+  els.keyLightButtons.forEach((button) => {
+    button.classList.toggle("active", (button.dataset.keyLight === "on") === enabled);
+  });
+}
+
+// 手修正ポイント: 自分の音を聞くボタンの有効条件。自由練習は選択音があれば再生可
+function canPlaySelectedAnswer() {
+  if (state.mode === "practice") return state.selected.length > 0;
+  if (!state.target) return false;
+  if (state.mode === "function") {
+    return Object.keys(state.target.assignments || {}).length > 0 || state.selected.length > 0;
+  }
+  return state.selected.length > 0;
+}
+
+// 手修正ポイント: 選択音の再生。自由練習は最後の通常分岐で同時発音される
+function playSelectedAnswer() {
+  ensureAudio();
+  if (!canPlaySelectedAnswer()) return;
+
+  if ((state.mode === "lesson" && state.target.answerMode === "scale") || state.mode === "scale") {
+    state.selected.forEach((pitch, index) => playNote(pitchNote(pitch), pitchOctave(pitch), index * 0.22, 0.2));
+    flashKeys(state.selected);
+    return;
+  }
+
+  if (state.mode === "diatonic") {
+    const chords = state.selected.map((id) => diatonicChoiceById(id)).filter(Boolean);
+    flashKeys(playChordSequence(chords, 0.55, "degree"));
+    return;
+  }
+
+  if (state.mode === "progression") {
+    const chords = state.selected.map((id) => diatonicChoiceById(id)).filter(Boolean);
+    flashKeys(playChordSequence(chords, 0.55, state.progressionPlayback));
+    return;
+  }
+
+  if (state.mode === "function") {
+    const assignedChords = state.target.chords.filter((chord) => state.target.assignments[chord.id]);
+    const focusedChord = state.selected[0] ? [chordById(state.selected[0])].filter(Boolean) : [];
+    const chords = assignedChords.length ? assignedChords : focusedChord;
+    flashKeys(playChordSequence(chords, 0.45, "degree"));
+    return;
+  }
+
+  state.selected.forEach((pitch) => playNote(pitchNote(pitch), pitchOctave(pitch), 0, 0.75));
+  flashKeys(state.selected);
 }
 
 function playSuccess(target) {
@@ -1856,29 +2311,50 @@ function playSuccess(target) {
     return;
   }
 
-  target.notes.forEach((note) => playNote(note, 4, 0, 0.55));
+  chordPitchesFromTarget(target).forEach((pitch) => playNote(pitchNote(pitch), pitchOctave(pitch), 0, 0.55));
+}
+
+function chordPitchesFromTarget(target) {
+  if (!target?.root || !target?.notes) return [];
+  return chordPitchesFromNotes(target.root, target.notes, 4);
+}
+
+function chordPitchesFromNotes(root, notes, rootOctave = 4) {
+  const rootIndex = NOTES.indexOf(root);
+  return notes.map((note) => {
+    const noteIndex = NOTES.indexOf(note);
+    const interval = (noteIndex - rootIndex + NOTES.length) % NOTES.length;
+    return `${note}${rootOctave + Math.floor((rootIndex + interval) / NOTES.length)}`;
+  });
 }
 
 function playChordSequence(chords, stepDelay, mode = "degree") {
   if (mode === "voicing") {
-    playVoicedChordSequence(chords, stepDelay);
-    return;
+    return playVoicedChordSequence(chords, stepDelay);
   }
 
+  const played = [];
   chords.forEach((chord, index) => {
     chordTonePitches(chord, chordRootOctaveInKey(chord)).forEach((pitch) => {
       playNote(pitchNote(pitch), pitchOctave(pitch), index * stepDelay, 0.42);
+      played.push(pitch);
     });
   });
+  return played;
 }
 
 function playVoicedChordSequence(chords, stepDelay) {
   let previous = null;
+  const played = [];
   chords.forEach((chord, index) => {
     const pitches = voiceChordNearPrevious(chord, previous);
-    pitches.forEach((pitch) => playNote(pitchNote(pitch), pitchOctave(pitch), index * stepDelay, 0.42));
+    pitches.forEach((pitch) => {
+      playNote(pitchNote(pitch), pitchOctave(pitch), index * stepDelay, 0.42);
+      played.push(pitch);
+    });
     previous = pitches;
   });
+  return played;
 }
 
 function voiceChordNearPrevious(chord, previous) {
@@ -1909,12 +2385,14 @@ function chordTonePitches(chord, rootOctave) {
   return scalePitches(chord.note, rootOctave, intervals);
 }
 
+// 手修正ポイント: Web Audio 初期化。ブラウザ制限があるためユーザー操作後に作る
 function ensureAudio() {
   if (!state.audio) {
     state.audio = new AudioContext();
   }
 }
 
+// 手修正ポイント: 単音再生の音色。oscillator.type や gain を触ると音色/音量が変わる
 function playNote(note, octave = 4, delay = 0, duration = 0.28) {
   const ctx = state.audio;
   const start = ctx.currentTime + delay;
@@ -1931,9 +2409,10 @@ function playNote(note, octave = 4, delay = 0, duration = 0.28) {
 }
 
 function flashKeys(notes) {
-  const noteNames = notes.map(pitchNote);
+  if (!state.keyLight) return;
+  const pitches = notes.map((note) => (/\d$/.test(note) ? note : `${note}4`));
   document.querySelectorAll(".key").forEach((key) => {
-    if (noteNames.includes(key.dataset.note)) {
+    if (pitches.includes(`${key.dataset.note}${key.dataset.octave}`)) {
       key.classList.add("active");
       setTimeout(() => key.classList.remove("active"), 520);
     }
@@ -2053,8 +2532,86 @@ function interleaveChallenges(scaleChallenges, chordChallenges) {
   return list;
 }
 
+// 手修正ポイント: 自由練習の解析用。複数オクターブの同名音を1音名へまとめる
+function selectedNoteNames() {
+  return [...new Set(state.selected.map(pitchNote))].sort((a, b) => NOTES.indexOf(a) - NOTES.indexOf(b));
+}
+
+// 手修正ポイント: 自由練習の表示順。鍵盤上の低い音から並べる
+function sortPitches(pitches) {
+  return [...pitches].sort((a, b) => midiFor(pitchNote(a), pitchOctave(a)) - midiFor(pitchNote(b), pitchOctave(b)));
+}
+
+// 手修正ポイント: 自由練習のコード候補判定。候補数やゆるさは filter / slice を調整
+function analyzeChordMatches(noteNames) {
+  if (noteNames.length < 3) return [];
+  const selected = new Set(noteNames);
+
+  return NOTES.flatMap((root) =>
+    Object.entries(CHORDS).map(([kind, chord]) => {
+      const tones = chordNotes(root, chord.intervals);
+      const matched = tones.filter((note) => selected.has(note)).length;
+      const extra = noteNames.filter((note) => !tones.includes(note)).length;
+      return {
+        name: `${root} ${chord.name}`,
+        copy: chord.copy,
+        matched,
+        total: tones.length,
+        extra,
+        exact: matched === tones.length && extra === 0,
+        score: matched * 2 - extra - Math.abs(tones.length - noteNames.length),
+      };
+    }),
+  )
+    .filter((match) => match.exact || (match.matched >= Math.min(3, match.total) && match.extra <= 1))
+    .sort((a, b) => Number(b.exact) - Number(a.exact) || b.score - a.score || a.name.localeCompare(b.name))
+    .slice(0, 6);
+}
+
+// 手修正ポイント: 自由練習のスケール候補判定。対象スケールは PRACTICE_SCALES
+function analyzeScaleMatches(noteNames) {
+  if (noteNames.length < 5) return [];
+  const selected = new Set(noteNames);
+
+  return NOTES.flatMap((root) =>
+    Object.values(PRACTICE_SCALES).map((scale) => {
+      const tones = uniqueNotes(scaleNotes(root, scale.intervals));
+      const matched = noteNames.filter((note) => tones.includes(note)).length;
+      const missing = tones.length - matched;
+      const extra = noteNames.filter((note) => !tones.includes(note)).length;
+      return {
+        name: `${root} ${scale.name}`,
+        copy: scale.copy,
+        matched,
+        total: tones.length,
+        missing,
+        extra,
+        exact: noteNames.length === tones.length && missing === 0 && extra === 0,
+        score: matched * 2 - missing - extra * 2,
+      };
+    }),
+  )
+    .filter((match) => match.exact || (match.matched >= Math.min(5, noteNames.length) && match.extra <= 1))
+    .sort((a, b) => Number(b.exact) - Number(a.exact) || b.score - a.score || a.name.localeCompare(b.name))
+    .slice(0, 6);
+}
+
+function uniqueNotes(notes) {
+  return [...new Set(notes)];
+}
+
+// 手修正ポイント: 自由練習のサマリ文。半音表示の文言を変えるならここ
+function practiceIntervalText(noteNames) {
+  if (noteNames.length === 0) return "音を選ぶと、音名セットから候補を解析します。";
+  if (noteNames.length === 1) return `${noteNames[0]} を基準に追加の音を押してください。`;
+  const root = noteNames[0];
+  const intervals = noteNames.map((note) => (NOTES.indexOf(note) - NOTES.indexOf(root) + NOTES.length) % NOTES.length);
+  return `${root} からの半音: ${intervals.map((interval) => `+${interval}`).join(" / ")}`;
+}
+
+// 手修正ポイント: 鍵盤ではなくカードUIを使う採点モード。自由練習は含めない
 function usesConceptBoard() {
-  return ["diatonic", "function", "dominant", "progression"].includes(state.mode);
+  return ["diatonic", "function", "progression"].includes(state.mode);
 }
 
 function diatonicChords(root) {

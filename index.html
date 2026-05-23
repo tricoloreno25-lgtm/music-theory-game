@@ -7,16 +7,33 @@
     <link rel="stylesheet" href="./styles.css?v=491b9b4" />
   </head>
   <body>
+    <!-- 手修正ポイント: アプリ全体の外枠。大きな余白や全体幅は styles.css の .app-shell / .stage を調整 -->
     <main class="app-shell">
       <section class="stage">
+        <!-- 手修正ポイント: 上部ナビ。タブの追加・並び替えはこの nav 内の button を編集 -->
         <header class="topbar">
-          <div>
-            <p class="eyebrow">Music Theory Game</p>
+          <div class="brand-block">
+            <!-- 手修正ポイント: メニューボタンは現在見た目だけ。サイドバー開閉を入れるなら app.js でイベント追加 -->
+            <button class="menu-button" type="button" aria-label="メニュー">☰</button>
             <h1>Chord Quest</h1>
           </div>
+          <nav class="mode-tabs" aria-label="ゲームモード">
+            <!-- 手修正ポイント: data-mode は app.js の MODES と対応。表示名だけ変えるならボタン内テキストを変更 -->
+            <button class="tab active" data-mode="mypage">ホーム</button>
+            <button class="tab" data-mode="textbook">理論</button>
+            <button class="tab" data-mode="lesson">演習</button>
+            <button class="tab" data-mode="chord">コード</button>
+            <button class="tab" data-mode="scale">スケール</button>
+            <button class="tab" data-mode="diatonic">ダイアトニック</button>
+            <button class="tab" data-mode="function">機能</button>
+            <button class="tab" data-mode="progression">進行</button>
+            <button class="tab" data-mode="ear">耳トレ</button>
+            <!-- 手修正ポイント: 自由練習モード。スコア非反映の解析専用モードなので右端に配置 -->
+            <button class="tab" data-mode="practice">自由練習</button>
+          </nav>
           <div class="topbar-tools">
             <div class="account-panel">
-              <label for="account-select">Account</label>
+              <label for="account-select">ユーザー</label>
               <div>
                 <select id="account-select" aria-label="アカウント"></select>
                 <button id="create-account" class="small-button" type="button">新規</button>
@@ -29,26 +46,38 @@
           </div>
         </header>
 
-        <nav class="mode-tabs" aria-label="ゲームモード">
-          <button class="tab active" data-mode="lesson">基礎</button>
-          <button class="tab" data-mode="chord">コード</button>
-          <button class="tab" data-mode="scale">スケール</button>
-          <button class="tab" data-mode="diatonic">ダイアトニック</button>
-          <button class="tab" data-mode="function">機能</button>
-          <button class="tab" data-mode="dominant">D / SD</button>
-          <button class="tab" data-mode="progression">進行</button>
-          <button class="tab" data-mode="ear">耳トレ</button>
-          <button class="tab" data-mode="mypage">マイページ</button>
-        </nav>
-
+        <!-- 手修正ポイント: 左サイドとメイン領域の2カラム。列幅は styles.css の .workspace を調整 -->
         <section class="workspace">
           <aside class="side-panel">
+            <!-- 手修正ポイント: レベル表示。XP計算は app.js の refreshLearningSummary / calculateLevel -->
+            <div class="progress-card">
+              <p class="side-heading">学習の進捗</p>
+              <div class="level-ring" id="level-ring">
+                <div>
+                  <strong id="level-number">Lv. 1</strong>
+                  <span id="level-title">音程の入口</span>
+                </div>
+              </div>
+              <div class="xp-row">
+                <span>次のレベルまで</span>
+                <strong id="xp-text">0 / 120 XP</strong>
+              </div>
+              <div class="xp-bar"><span id="xp-fill"></span></div>
+            </div>
+            <!-- 手修正ポイント: 今日の目標。目標値は app.js の DAILY_GOALS -->
+            <div class="goal-card">
+              <p class="side-heading">今日の目標</p>
+              <div><span class="check-dot" id="goal-attempts-dot"></span><span>問題を10問解く</span><strong id="goal-attempts-value">0 / 10</strong></div>
+              <div><span class="check-dot" id="goal-accuracy-dot"></span><span>正解率70%以上</span><strong id="goal-accuracy-value">--</strong></div>
+              <div><span class="check-dot" id="goal-progressions-dot"></span><span>新しい進行を3つ学ぶ</span><strong id="goal-progressions-value">0 / 3</strong></div>
+            </div>
             <div class="lesson-card">
               <h2 id="mode-title">音程の地図</h2>
               <p id="mode-copy">
                 コードもスケールも、半音の並びを覚えると一気に見通しがよくなります。
               </p>
             </div>
+            <!-- 手修正ポイント: 累計スコア表示。自由練習では更新されない -->
             <div class="stats-grid">
               <div>
                 <span>正解</span>
@@ -70,19 +99,31 @@
           </aside>
 
           <section class="game-panel">
+            <!-- 手修正ポイント: 問題/モードの見出し。自由練習では app.js の showPracticeMode が文言を入れる -->
             <div class="prompt-row">
               <div>
                 <p class="label" id="prompt-label">今日の課題</p>
                 <h2 id="prompt">C メジャースケールを鳴らしてみよう</h2>
                 <p class="solved-status" id="solved-status">未挑戦</p>
               </div>
-              <button class="icon-button" id="play-target" title="お手本を再生" aria-label="お手本を再生">
-                <span aria-hidden="true">▶</span>
-              </button>
+              <div class="play-tools">
+                <button class="icon-button" id="play-target" title="お手本を再生" aria-label="お手本を再生">
+                  <span aria-hidden="true">▶</span>
+                </button>
+                <div class="guide-control" aria-label="鍵盤ガイド">
+                  <span>ガイド</span>
+                  <div class="playback-toggle key-light-toggle" role="group">
+                    <button class="active" type="button" data-key-light="on">ON</button>
+                    <button type="button" data-key-light="off">OFF</button>
+                  </div>
+                </div>
+              </div>
             </div>
 
+            <!-- 手修正ポイント: 選択中の音やフィードバック表示。自由練習では横スクロール固定 -->
             <div class="answer-strip" id="answer-strip" aria-live="polite"></div>
 
+            <!-- 手修正ポイント: ヒントUI。自由練習モードでは CSS / app.js で非表示 -->
             <div class="hint-tools">
               <button id="toggle-hint" class="secondary" aria-expanded="false" aria-controls="hint-panel">
                 ヒントを見る
@@ -92,18 +133,25 @@
 
             <div class="hint-panel hidden" id="hint-panel" aria-live="polite"></div>
 
+            <!-- 手修正ポイント: ダイアトニック/進行/自由練習の解析パネルを app.js がここへ描画 -->
             <div class="concept-board hidden" id="concept-board" aria-live="polite"></div>
 
+            <!-- 手修正ポイント: 鍵盤本体。キーは app.js の renderKeyboard で生成 -->
             <div class="keyboard" id="keyboard" aria-label="ピアノ鍵盤"></div>
 
+            <!-- 手修正ポイント: 下部操作ボタン。自由練習では判定/次へを非表示 -->
             <div class="controls">
               <button id="check-answer">判定</button>
+              <button id="play-answer" class="secondary">自分の音を聞く</button>
               <button id="next-challenge" class="secondary">次へ</button>
               <button id="clear-answer" class="secondary">消す</button>
             </div>
           </section>
 
+          <!-- 手修正ポイント: ホーム画面。中身は app.js の renderMyPageTop / renderMyPageDetail -->
           <section class="mypage-panel hidden" id="mypage-panel" aria-live="polite"></section>
+          <!-- 手修正ポイント: 理論テキスト画面。中身は app.js の renderTextbook -->
+          <section class="textbook-panel hidden" id="textbook-panel"></section>
         </section>
       </section>
     </main>
