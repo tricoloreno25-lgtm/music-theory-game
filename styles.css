@@ -202,7 +202,7 @@ h1 {
   padding: 0;
   border: 0;
   background: transparent;
-  overflow-x: auto;
+  overflow: visible;
   scrollbar-width: none;
 }
 
@@ -236,6 +236,196 @@ h1 {
   height: 4px;
   border-radius: 99px 99px 0 0;
   background: var(--green-dark);
+}
+
+.training-menu {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.training-trigger span {
+  display: inline-block;
+  margin-left: 3px;
+  transition: transform 160ms ease;
+}
+
+.training-trigger[aria-expanded="true"] span {
+  transform: rotate(180deg);
+}
+
+.training-popover {
+  position: absolute;
+  z-index: 100;
+  top: calc(100% - 4px);
+  left: 50%;
+  width: 260px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: 0 14px 34px rgba(15, 23, 32, 0.16);
+  transform: translateX(-50%);
+}
+
+.training-popover button {
+  min-height: 38px;
+  padding: 7px 8px;
+  border-radius: 6px;
+  background: #f1f4f2;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-align: left;
+}
+
+.training-popover button:hover,
+.training-popover button.active {
+  color: var(--green-dark);
+  background: #e4f6ed;
+}
+
+/* 耳でキーとコード進行を推定する4小節課題 */
+.harmonize-board {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.key-detect {
+  display: grid;
+  grid-template-columns: minmax(210px, 0.75fr) minmax(0, 1.25fr);
+  gap: 14px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.key-detect strong,
+.key-detect small {
+  display: block;
+  margin-top: 5px;
+}
+
+.key-detect small,
+.harmony-disabled {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 720;
+}
+
+.key-choice-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(78px, 1fr));
+  gap: 7px;
+}
+
+.key-choice-row button {
+  min-height: 44px;
+  padding: 7px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #eef2f4;
+  font-size: 0.82rem;
+  font-weight: 850;
+}
+
+.key-choice-row button.active {
+  border-color: var(--green);
+  color: var(--green-dark);
+  background: #e4f6ed;
+}
+
+.melody-timeline {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(130px, 1fr));
+  gap: 8px;
+}
+
+.melody-timeline.one-bar {
+  grid-template-columns: minmax(260px, 560px);
+}
+
+.melody-bar {
+  min-height: 138px;
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcf8;
+  text-align: left;
+}
+
+.melody-bar.active {
+  border-color: rgba(21, 129, 62, 0.65);
+  background: #edf8f3;
+  box-shadow: inset 0 0 0 2px rgba(21, 129, 62, 0.1);
+}
+
+.melody-bar span,
+.melody-bar small,
+.harmony-picker small,
+.harmony-flow span {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 760;
+}
+
+.melody-bar strong {
+  font-size: 1.15rem;
+}
+
+.melody-bar b {
+  margin-top: auto;
+  color: var(--green-dark);
+}
+
+.harmony-picker {
+  display: grid;
+  grid-template-columns: minmax(190px, 0.65fr) minmax(0, 1.35fr);
+  gap: 14px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+
+.harmony-picker > div:first-child > strong,
+.harmony-picker > div:first-child > small {
+  display: block;
+  margin-top: 5px;
+}
+
+.chord-card.selected-card {
+  border-color: var(--green);
+  background: #e4f6ed;
+}
+
+.harmony-flow {
+  display: grid;
+  grid-template-columns: auto minmax(160px, 0.5fr) minmax(240px, 1fr);
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border-radius: 8px;
+  background: #eef2f4;
+}
+
+.harmony-flow strong {
+  color: var(--green-dark);
+}
+
+.harmony-flow p {
+  margin: 0;
+  line-height: 1.45;
+  font-size: 0.86rem;
+  font-weight: 700;
 }
 
 /* 手修正ポイント: 画面の主レイアウト。左サイド幅やメイン余白はここ */
@@ -553,6 +743,16 @@ h1 {
   margin-top: 5px;
   font-size: 1.04rem;
   line-height: 1.55;
+}
+
+.textbook-practice button {
+  min-height: 38px;
+  margin-top: 12px;
+  padding: 0 14px;
+  border-radius: 7px;
+  color: white;
+  background: var(--green-dark);
+  font-weight: 850;
 }
 
 /* 手修正ポイント: ホーム画面。今日の状況、最近の成績、メニュー別進捗の調整 */
@@ -1763,7 +1963,17 @@ h1 {
   }
 
   .mode-tabs {
-    grid-template-columns: repeat(2, 1fr);
+    width: 100%;
+    gap: 22px;
+  }
+
+  .training-popover {
+    position: fixed;
+    top: 138px;
+    right: 16px;
+    left: 16px;
+    width: auto;
+    transform: none;
   }
 
   .tab {
@@ -1782,6 +1992,20 @@ h1 {
   .home-overview,
   .practice-results {
     grid-template-columns: 1fr;
+  }
+
+  .melody-timeline {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .harmony-picker,
+  .harmony-flow,
+  .key-detect {
+    grid-template-columns: 1fr;
+  }
+
+  .key-choice-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .playback-toggle {

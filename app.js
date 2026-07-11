@@ -44,6 +44,67 @@ const PRACTICE_SCALES = {
   blues: { name: "ブルース", intervals: [0, 3, 5, 6, 7, 10, 12], copy: "マイナーペンタにブルーノートを足した形。" },
 };
 
+// 音程問題。半音数と一般的な呼び名を対応させる
+const INTERVALS = [
+  { semitones: 1, name: "短2度", short: "半音1つ" },
+  { semitones: 2, name: "長2度", short: "全音1つ" },
+  { semitones: 3, name: "短3度", short: "半音3つ" },
+  { semitones: 4, name: "長3度", short: "半音4つ" },
+  { semitones: 5, name: "完全4度", short: "半音5つ" },
+  { semitones: 7, name: "完全5度", short: "半音7つ" },
+  { semitones: 12, name: "完全8度", short: "1オクターブ" },
+];
+
+const SCALE_DEGREES = [
+  { degree: 1, label: "第1音（主音）", semitones: 0 },
+  { degree: 2, label: "第2音", semitones: 2 },
+  { degree: 3, label: "第3音", semitones: 4 },
+  { degree: 4, label: "第4音", semitones: 5 },
+  { degree: 5, label: "第5音", semitones: 7 },
+  { degree: 6, label: "第6音", semitones: 9 },
+  { degree: 7, label: "第7音", semitones: 11 },
+];
+
+// 4小節版の前に、短いフレーズからキーと1コードを推定する課題
+const ONE_BAR_HARMONY_CHALLENGES = [
+  { name: "Phrase 01", key: "C", degrees: ["I"], bars: [["B4", "C5", "E5", "G5"]] },
+  { name: "Phrase 02", key: "G", degrees: ["I"], bars: [["F#4", "G4", "B4", "D5"]] },
+  { name: "Phrase 03", key: "D", degrees: ["I"], bars: [["C#5", "D5", "F#5", "A5"]] },
+  { name: "Phrase 04", key: "A", degrees: ["I"], bars: [["G#4", "A4", "C#5", "E5"]] },
+  { name: "Phrase 05", key: "C", degrees: ["vi"], bars: [["B4", "A4", "C5", "E5"]] },
+  { name: "Phrase 06", key: "G", degrees: ["IV"], bars: [["F#4", "G4", "E4", "C5"]] },
+  { name: "Phrase 07", key: "D", degrees: ["vi"], bars: [["C#5", "B4", "D5", "F#5"]] },
+  { name: "Phrase 08", key: "A", degrees: ["V"], bars: [["F#4", "E4", "G#4", "B4"]] },
+];
+
+// メロディーだけを聴き、キーと4小節のコード進行を推定する課題
+const HARMONIZE_CHALLENGES = [
+  {
+    name: "Melody 01",
+    key: "C",
+    degrees: ["I", "vi", "IV", "V"],
+    bars: [["E4", "G4", "A4", "G4"], ["E4", "C5", "B4", "A4"], ["A4", "G4", "F4", "A4"], ["D5", "B4", "G4", "B4"]],
+  },
+  {
+    name: "Melody 02",
+    key: "G",
+    degrees: ["I", "IV", "ii", "V"],
+    bars: [["B4", "D5", "E5", "D5"], ["C5", "E5", "D5", "C5"], ["A4", "C5", "E5", "C5"], ["A4", "F#4", "D5", "F#4"]],
+  },
+  {
+    name: "Melody 03",
+    key: "D",
+    degrees: ["I", "vi", "ii", "V"],
+    bars: [["F#4", "A4", "B4", "A4"], ["F#4", "D5", "C#5", "B4"], ["E4", "G4", "A4", "G4"], ["E4", "C#5", "A4", "C#5"]],
+  },
+  {
+    name: "Melody 04",
+    key: "A",
+    degrees: ["I", "IV", "vi", "V"],
+    bars: [["C#5", "E5", "F#5", "E5"], ["D5", "F#5", "E5", "D5"], ["C#5", "A4", "B4", "C#5"], ["B4", "G#4", "E5", "G#4"]],
+  },
+];
+
 // 手修正ポイント: ダイアトニックコードの度数・品質・機能。機能分類の正解にも影響
 const DIATONIC_DEGREES = [
   { degree: "I", quality: "", offset: 0, role: "T" },
@@ -334,6 +395,26 @@ const MODES = {
     copy: "コード、スケール、進行の問題を順番に解きながら、半音の地図を実際の鍵盤で確認します。",
     label: "問題演習",
   },
+  interval: {
+    title: "音程トレーニング",
+    copy: "基準音から半音を数え、指定された音程になる音を鍵盤から選びます。",
+    label: "音程を作る",
+  },
+  transpose: {
+    title: "度数と移調",
+    copy: "メジャースケールの度数を音名へ変換し、同じ役割を別のキーへ移します。",
+    label: "度数で考える",
+  },
+  harmonize: {
+    title: "キーとコードを耳で探す",
+    copy: "音名を見ずに4小節のメロディーを聴き、キーとコード進行を推定します。",
+    label: "和声を聴き取る",
+  },
+  harmonyOne: {
+    title: "1小節のキーとコード",
+    copy: "短いメロディーを聴き、キーと、その小節を支えるコードを1つ推定します。",
+    label: "1小節を聴き取る",
+  },
   chord: {
     title: "コードビルダー",
     copy: "指定されたルートとコード種を見て、構成音を鍵盤から選びます。順番は問いません。",
@@ -377,9 +458,23 @@ const MODES = {
 };
 
 // 手修正ポイント: スコア/履歴対象モード。自由練習はここに入れないので履歴に残らない
-const PLAY_MODES = ["lesson", "chord", "scale", "diatonic", "function", "progression", "ear"];
+const PLAY_MODES = ["interval", "transpose", "harmonyOne", "harmonize", "lesson", "chord", "scale", "diatonic", "function", "progression", "ear"];
 // 手修正ポイント: 理論ページの章データ。本文修正や章追加はここ
 const TEXTBOOK_SECTIONS = [
+  {
+    id: "interval-basics",
+    title: "音程の基礎",
+    kicker: "最初の一歩",
+    lead: "音程は2つの音の距離です。鍵盤では白鍵と黒鍵を区別せず、隣へ1つ動くと半音として数えます。",
+    points: [
+      "短2度は1半音、長2度は2半音です。長短3度はコードの明るさと暗さを決めます。",
+      "完全4度は5半音、完全5度は7半音。安定して聞こえやすい重要な距離です。",
+      "完全8度は12半音。同じ音名が1オクターブ上で現れます。",
+    ],
+    example: "Cから長3度上はE、完全5度上はG、完全8度上は高いC",
+    practice: "音程トレーニング",
+    practiceMode: "interval",
+  },
   {
     id: "interval",
     title: "音程とスケール",
@@ -418,6 +513,48 @@ const TEXTBOOK_SECTIONS = [
     ],
     example: "Cメジャー: C / Dm / Em / F / G / Am / Bdim",
     practice: "ダイアトニック",
+  },
+  {
+    id: "degree-transpose",
+    title: "度数と移調",
+    kicker: "キーを越える",
+    lead: "度数は、キーの主音を1として各音の位置を数字で表す方法です。同じ度数関係を保って別のキーへ移すことを移調と呼びます。",
+    points: [
+      "メジャースケールの度数は 1・2・3・4・5・6・7。Cメジャーでは C・D・E・F・G・A・B です。",
+      "第3音はルートから4半音、第5音は7半音です。キーが変わっても距離は変わりません。",
+      "Cメジャーの第3音EをGメジャーへ移調すると、Gの第3音Bになります。",
+    ],
+    example: "I–IV–VをCからGへ移調: C–F–G → G–C–D",
+    practice: "度数と移調",
+    practiceMode: "transpose",
+  },
+  {
+    id: "one-bar-harmony",
+    title: "1小節からキーとコードを探す",
+    kicker: "和声聴き取り 1",
+    lead: "まず短い1小節だけを使い、使われている音からキーを仮定し、メロディーを最も自然に支えるコードを1つ探します。",
+    points: [
+      "半音上から主音へ進む音は、キーを見つける強い手がかりになります。",
+      "メロディーの中心音がコードのルート・3度・5度のどれに当たるかを聴きます。",
+      "キーとコードを選んだら伴奏を重ね、メロディーが安定して聞こえるか確認します。",
+    ],
+    example: "短いフレーズを聴く → キーを選ぶ → コードを1つ置く → 伴奏付きで確認する",
+    practice: "1小節の和声聴き取り",
+    practiceMode: "harmonyOne",
+  },
+  {
+    id: "melody-harmony",
+    title: "メロディーから和声を推定する",
+    kicker: "和声聴き取り 2",
+    lead: "キーもコードも表示されないメロディーを聴き、調の中心と各小節の和音を探します。音階、終止感、強拍音を総合して判断します。",
+    points: [
+      "繰り返し止まって聞こえる音や、フレーズの着地点からキーの主音を探します。",
+      "キーを仮定したら、各小節の強拍や長い音を含むダイアトニックコードを試します。",
+      "候補を並べたら、T・SD・Dの流れとメロディーとの響きを再生して検証します。",
+    ],
+    example: "まずメロディーだけを聴く → キーを仮定する → 1小節ずつコードを置く → 全体を再生して確かめる",
+    practice: "キーと4小節のコードを推定",
+    practiceMode: "harmonize",
   },
   {
     id: "function",
@@ -496,6 +633,8 @@ const state = {
   progressionPlayback: "degree",
   keyLight: true,
   solved: false,
+  activeBar: 0,
+  harmonyKey: null,
 };
 
 // 手修正ポイント: DOM参照一覧。HTMLの id/class を変えたらここも合わせる
@@ -506,6 +645,8 @@ const els = {
   keyboard: document.querySelector("#keyboard"),
   answerStrip: document.querySelector("#answer-strip"),
   tabs: document.querySelectorAll(".tab"),
+  trainingTrigger: document.querySelector("#training-trigger"),
+  trainingPopover: document.querySelector("#training-popover"),
   modeTitle: document.querySelector("#mode-title"),
   modeCopy: document.querySelector("#mode-copy"),
   promptLabel: document.querySelector("#prompt-label"),
@@ -557,7 +698,19 @@ async function init() {
 // 手修正ポイント: クリック/変更イベントの入口。UI操作を追加するならまずここ
 function bindEvents() {
   els.tabs.forEach((tab) => {
-    tab.addEventListener("click", () => setMode(tab.dataset.mode));
+    if (tab.dataset.mode) tab.addEventListener("click", () => setMode(tab.dataset.mode));
+  });
+  els.trainingTrigger.addEventListener("click", () => {
+    const willOpen = els.trainingPopover.classList.contains("hidden");
+    els.trainingPopover.classList.toggle("hidden", !willOpen);
+    els.trainingTrigger.setAttribute("aria-expanded", String(willOpen));
+  });
+  els.trainingPopover.addEventListener("click", (event) => {
+    const button = event.target instanceof Element ? event.target.closest("[data-mode]") : null;
+    if (button) setMode(button.dataset.mode);
+  });
+  document.addEventListener("click", (event) => {
+    if (!event.target.closest?.(".training-menu")) closeTrainingMenu();
   });
   els.accountSelect.addEventListener("change", () => switchAccount(els.accountSelect.value));
   els.createAccount.addEventListener("click", () => createAccountFromPrompt());
@@ -573,6 +726,8 @@ function bindEvents() {
     const target = event.target instanceof Element ? event.target : null;
     const section = target?.closest("[data-textbook-section]")?.dataset.textbookSection;
     if (section) renderTextbook(section);
+    const practiceMode = target?.closest("[data-start-practice]")?.dataset.startPractice;
+    if (practiceMode) setMode(practiceMode);
   });
   els.playTarget.addEventListener("click", () => playTarget());
   els.playAnswer.addEventListener("click", () => playSelectedAnswer());
@@ -583,6 +738,8 @@ function bindEvents() {
   els.check.addEventListener("click", () => checkAnswer());
   els.clear.addEventListener("click", () => {
     state.selected = [];
+    state.activeBar = 0;
+    if (isHarmonyMode()) state.harmonyKey = null;
     if (state.mode === "function" && state.target) {
       state.target.assignments = {};
     }
@@ -702,6 +859,39 @@ function buildQuizBank() {
         cards: challenge.cards,
       },
     });
+  });
+
+  ["C", "D", "E", "F", "G", "A"].forEach((root) => {
+    INTERVALS.forEach((interval) => {
+      quizzes.push({
+        id: `interval-${root}-${interval.semitones}`,
+        mode: "interval",
+        payload: { root, semitones: interval.semitones },
+      });
+    });
+  });
+
+  ["C", "G", "D", "F"].forEach((key) => {
+    SCALE_DEGREES.forEach(({ degree }) => {
+      quizzes.push({ id: `transpose-degree-${key}-${degree}`, mode: "transpose", payload: { kind: "degree", key, degree } });
+    });
+  });
+  const transposePairs = [["C", "G"], ["C", "F"], ["G", "D"], ["F", "C"]];
+  transposePairs.forEach(([sourceKey, targetKey]) => {
+    [1, 3, 4, 5, 6].forEach((degree) => {
+      quizzes.push({
+        id: `transpose-move-${sourceKey}-${targetKey}-${degree}`,
+        mode: "transpose",
+        payload: { kind: "move", sourceKey, targetKey, degree },
+      });
+    });
+  });
+
+  HARMONIZE_CHALLENGES.forEach((_, challengeIndex) => {
+    quizzes.push({ id: `harmonize-${challengeIndex}`, mode: "harmonize", order: challengeIndex, payload: { challengeIndex } });
+  });
+  ONE_BAR_HARMONY_CHALLENGES.forEach((_, challengeIndex) => {
+    quizzes.push({ id: `harmony-one-${challengeIndex}`, mode: "harmonyOne", order: challengeIndex, payload: { challengeIndex } });
   });
 
   ["C", "D", "E", "F", "G", "A", "B"].forEach((root) => {
@@ -866,6 +1056,54 @@ function targetFromQuiz(quiz) {
     };
   }
 
+  if (quiz.mode === "interval") {
+    const interval = INTERVALS.find((item) => item.semitones === payload.semitones);
+    const rootPitch = `${payload.root}4`;
+    const answerPitch = transposePitch(rootPitch, payload.semitones);
+    return {
+      id: quiz.id,
+      root: payload.root,
+      rootPitch,
+      interval,
+      notes: [answerPitch],
+      prompt: `${payload.root} から上に ${interval.name} の音を選ぶ`,
+      copy: `${payload.root}を出発点に、黒鍵も含めて${interval.short}ぶん上へ進みます。`,
+      type: "interval",
+    };
+  }
+
+  if (quiz.mode === "transpose") {
+    const degree = SCALE_DEGREES.find((item) => item.degree === payload.degree);
+    const targetKey = payload.kind === "move" ? payload.targetKey : payload.key;
+    const answerPitch = transposePitch(`${targetKey}4`, degree.semitones);
+    const sourceNote = payload.kind === "move" ? pitchNote(transposePitch(`${payload.sourceKey}4`, degree.semitones)) : null;
+    return {
+      id: quiz.id,
+      kind: payload.kind,
+      key: payload.key,
+      sourceKey: payload.sourceKey,
+      targetKey,
+      sourceNote,
+      degree,
+      notes: [answerPitch],
+      prompt: payload.kind === "move"
+        ? `${payload.sourceKey}メジャーの${degree.label} ${sourceNote} を、${targetKey}メジャーへ移調する`
+        : `${targetKey}メジャースケールの${degree.label}を選ぶ`,
+      copy: payload.kind === "move"
+        ? `音名ではなく「第${degree.degree}音」という役割を保って別のキーへ移します。`
+        : `${targetKey}を第1音として、メジャースケールの並びから第${degree.degree}音を探します。`,
+      type: "transpose",
+    };
+  }
+
+  if (quiz.mode === "harmonize") {
+    return harmonyTargetFromChallenge(quiz, HARMONIZE_CHALLENGES[payload.challengeIndex]);
+  }
+
+  if (quiz.mode === "harmonyOne") {
+    return harmonyTargetFromChallenge(quiz, ONE_BAR_HARMONY_CHALLENGES[payload.challengeIndex]);
+  }
+
   if (quiz.mode === "chord") {
     const chord = CHORDS[payload.kind];
     return {
@@ -956,6 +1194,27 @@ function targetFromQuiz(quiz) {
   };
 }
 
+function harmonyTargetFromChallenge(quiz, challenge) {
+  const chords = diatonicChords(challenge.key).filter((chord) => chord.degree !== "vii°");
+  const expected = challenge.degrees.map((degree) => chords.find((chord) => chord.degree === degree));
+  const barLabel = challenge.bars.length === 1 ? "コード" : "コード進行";
+  return {
+    id: quiz.id,
+    root: challenge.key,
+    key: challenge.key,
+    name: challenge.name,
+    bars: challenge.bars,
+    degrees: challenge.degrees,
+    chords,
+    choices: chords,
+    expected,
+    notes: challenge.bars.flat(),
+    prompt: `${challenge.name} のキーと${barLabel}を耳で当てる`,
+    copy: `お手本ではメロディーだけが鳴ります。キーを選び、${challenge.bars.length === 1 ? "コードを1つ" : "各小節へコード"}を置いて確認してください。`,
+    type: "harmonize",
+  };
+}
+
 // 手修正ポイント: 鍵盤ボタンの生成。見た目は CSS、押した時の処理は selectNote
 function renderKeyboard() {
   WHITE_SEQUENCE.forEach((note, index) => {
@@ -980,17 +1239,32 @@ function renderKeyboard() {
   });
 }
 
+function closeTrainingMenu() {
+  els.trainingPopover.classList.add("hidden");
+  els.trainingTrigger.setAttribute("aria-expanded", "false");
+}
+
+function updateNavigationState(mode) {
+  const trainingModes = PLAY_MODES;
+  els.tabs.forEach((tab) => tab.classList.toggle("active", tab.dataset.mode === mode));
+  els.trainingTrigger.classList.toggle("active", trainingModes.includes(mode));
+  els.trainingPopover.querySelectorAll("[data-mode]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.mode === mode);
+  });
+}
+
 // 手修正ポイント: モード切替の中心。自由練習だけ専用クラスを付けて固定レイアウトにする
 async function setMode(mode) {
   state.mode = mode;
   state.selected = [];
   state.followQuizOrder = false;
+  closeTrainingMenu();
   document.body.classList.toggle("practice-active", mode === "practice");
   els.gamePanel.classList.toggle("practice-mode", mode === "practice");
   if (mode === "lesson") {
     state.lessonStep = 0;
   }
-  els.tabs.forEach((tab) => tab.classList.toggle("active", tab.dataset.mode === mode));
+  updateNavigationState(mode);
   els.modeTitle.textContent = MODES[mode].title;
   els.modeCopy.textContent = MODES[mode].copy;
   els.promptLabel.textContent = MODES[mode].label;
@@ -1032,6 +1306,8 @@ function showPracticeMode() {
 // 手修正ポイント: 問題モードの次問取得。自由練習では呼ばない
 async function nextChallenge() {
   state.selected = [];
+  state.activeBar = 0;
+  if (isHarmonyMode()) state.harmonyKey = null;
   state.hintCount = 0;
   state.solved = false;
 
@@ -1050,7 +1326,7 @@ async function showQuiz(quiz) {
     state.mode === "lesson" ? `${MODES.lesson.label} ${state.target.step}/100` : MODES[state.mode].label;
   els.modeCopy.textContent = state.target.copy || MODES[state.mode].copy;
 
-  if (state.mode === "ear") {
+  if (state.mode === "ear" || isHarmonyMode()) {
     setTimeout(playTarget, 160);
   }
 
@@ -1072,7 +1348,7 @@ async function openQuizFromHistory(quizId) {
   state.hintCount = 0;
   state.solved = false;
   state.followQuizOrder = true;
-  els.tabs.forEach((tab) => tab.classList.toggle("active", tab.dataset.mode === quiz.mode));
+  updateNavigationState(quiz.mode);
   els.modeTitle.textContent = MODES[quiz.mode].title;
   els.modeCopy.textContent = MODES[quiz.mode].copy;
   els.promptLabel.textContent = MODES[quiz.mode].label;
@@ -1115,6 +1391,10 @@ function selectNote(note, octave) {
     state.selected.push(pitch);
   }
 
+  if (state.mode === "interval" || state.mode === "transpose") {
+    state.selected = [pitch];
+  }
+
   renderAnswer();
   renderPracticeAnalysis();
   renderHint();
@@ -1135,6 +1415,14 @@ function renderAnswer(message = "", status = "") {
   }
 
   if (!message && usesConceptBoard()) {
+    if (isHarmonyMode() && state.selected.filter(Boolean).length === 0) {
+      const hint = document.createElement("span");
+      hint.className = "hint";
+      hint.textContent = "小節を選び、強拍音を含むコード候補から1つずつ配置する";
+      els.answerStrip.appendChild(hint);
+      return;
+    }
+
     if (state.mode === "diatonic" && state.selected.length === 0) {
       const hint = document.createElement("span");
       hint.className = "hint";
@@ -1174,7 +1462,9 @@ function renderAnswer(message = "", status = "") {
   values.forEach((value) => {
     const span = document.createElement("span");
     span.className = "answer-note";
-    span.textContent = usesConceptBoard() ? diatonicChoiceById(value)?.symbol || chordById(value)?.symbol || value : displayPitch(value);
+    span.textContent = isHarmonyMode()
+      ? harmonyChordById(value)?.symbol || value
+      : usesConceptBoard() ? diatonicChoiceById(value)?.symbol || chordById(value)?.symbol || value : displayPitch(value);
     els.answerStrip.appendChild(span);
   });
 }
@@ -1250,7 +1540,79 @@ function renderConceptBoard() {
     return;
   }
 
+  if (isHarmonyMode()) {
+    renderHarmonizeBoard();
+    return;
+  }
+
   renderFunctionBoard();
+}
+
+function renderHarmonizeBoard() {
+  const candidateKeys = ["C", "G", "D", "A"];
+  const chords = harmonyCurrentChords();
+  const barCount = state.target.bars.length;
+  const selectedChords = Array.from({ length: barCount }, (_, index) => chords.find((chord) => chord.id === state.selected[index]));
+  const reveal = state.solved;
+
+  els.conceptBoard.innerHTML = `
+    <div class="harmonize-board">
+      <div class="key-detect">
+        <div>
+          <p class="mini-label">Step 1</p>
+          <strong>このメロディーのキーは？</strong>
+          <small>主音への着地感と、使われている変化音を聴きます。</small>
+        </div>
+        <div class="key-choice-row">
+          ${candidateKeys.map((key) => `<button type="button" class="${state.harmonyKey === key ? "active" : ""}" data-action="choose-harmony-key" data-key="${key}">${key}メジャー</button>`).join("")}
+        </div>
+      </div>
+      <div class="melody-timeline ${barCount === 1 ? "one-bar" : ""}" aria-label="${barCount}小節のメロディー">
+        ${state.target.bars.map((bar, index) => {
+          const chord = selectedChords[index];
+          return `
+            <button type="button" class="melody-bar ${state.activeBar === index ? "active" : ""}" data-action="focus-harmony-bar" data-bar="${index}">
+              <span>${index + 1}小節目</span>
+              <strong>${reveal ? bar.map(pitchNote).join(" － ") : "♪　♪　♪　♪"}</strong>
+              <small>${reveal ? "音名を開示" : "メロディーを聴いて推定"}</small>
+              <b>${chord ? `${chord.symbol} · ${roleName(chord.role)}` : "コードを選ぶ"}</b>
+            </button>
+          `;
+        }).join("")}
+      </div>
+      <div class="harmony-picker">
+        <div>
+          <p class="mini-label">Step 2 · ${state.activeBar + 1}小節目</p>
+          <strong>${state.harmonyKey ? `${state.harmonyKey}メジャーのコード` : "先にキーを選択"}</strong>
+          <small>コードを置いたら「自分の音を聞く」でメロディーと一緒に確認します。</small>
+        </div>
+        <div class="card-bank">
+          ${chords.map((chord) => `
+            <button class="chord-card ${state.selected[state.activeBar] === chord.id ? "selected-card" : ""}" data-action="pick-harmony" data-id="${chord.id}">
+              <span>${chord.degree} · ${chord.role}</span>
+              <strong>${chord.symbol}</strong>
+              <small>${roleName(chord.role)}</small>
+            </button>
+          `).join("") || '<span class="harmony-disabled">キーを選ぶとコード候補が表示されます</span>'}
+        </div>
+      </div>
+      <div class="harmony-flow">
+        <span>推定した流れ</span>
+        <strong>${state.target.bars.map((_, index) => selectedChords[index]?.role || "? ").join(" → ")}</strong>
+        <p>${reveal ? `正解は ${state.target.key}メジャー：${state.target.expected.map((chord) => chord.symbol).join(" → ")}` : "メロディーだけを繰り返し聴き、伴奏を重ねて確かめましょう。"}</p>
+      </div>
+    </div>
+  `;
+  bindConceptButtons();
+}
+
+function harmonyCurrentChords() {
+  if (!state.harmonyKey) return [];
+  return diatonicChords(state.harmonyKey).filter((chord) => chord.degree !== "vii°");
+}
+
+function harmonyChordById(id) {
+  return harmonyCurrentChords().find((chord) => chord.id === id);
 }
 
 function renderDiatonicBoard() {
@@ -1456,6 +1818,32 @@ function bindConceptButtons() {
 
       if (state.solved) return;
 
+      if (action === "choose-harmony-key") {
+        state.harmonyKey = button.dataset.key;
+        state.selected = [];
+        state.activeBar = 0;
+        renderAnswer();
+        renderConceptBoard();
+        updateControls();
+        return;
+      }
+
+      if (action === "focus-harmony-bar") {
+        state.activeBar = Number(button.dataset.bar);
+        renderConceptBoard();
+        return;
+      }
+
+      if (action === "pick-harmony") {
+        state.selected[state.activeBar] = id;
+        const nextEmpty = state.target.bars.findIndex((_, index) => !state.selected[index]);
+        state.activeBar = nextEmpty >= 0 ? nextEmpty : Math.min(state.activeBar + 1, state.target.bars.length - 1);
+        renderAnswer();
+        renderConceptBoard();
+        updateControls();
+        return;
+      }
+
       if (action === "pick-diatonic") {
         if (state.selected.length >= state.target.chords.length) return;
         state.selected.push(id);
@@ -1506,6 +1894,33 @@ function renderHint() {
 function theoryCardsForTarget() {
   if (state.mode === "lesson") {
     return state.target.cards.map(([title, copy]) => ({ title, copy }));
+  }
+
+  if (state.mode === "interval") {
+    return [
+      { title: "基準音を確認", copy: `出発点は <strong>${state.target.root}</strong> です。この鍵盤自体は回答に含めません。` },
+      { title: "半音で数える", copy: `<strong>${state.target.interval.name}</strong> は ${state.target.interval.short}。白鍵と黒鍵を1つずつ数えます。` },
+      { title: "よく使う距離", copy: "短3度は3半音、長3度は4半音、完全5度は7半音です。" },
+      { title: "上向きに探す", copy: `今回は ${state.target.root} から右方向へ進み、到着する鍵盤を1つ選びます。` },
+    ];
+  }
+
+  if (state.mode === "transpose") {
+    return [
+      { title: "主音を1とする", copy: `<strong>${state.target.targetKey}</strong> を第1音としてメジャースケールを組み立てます。` },
+      { title: "メジャーの度数", copy: "第1〜7音はルートから <strong>0 / 2 / 4 / 5 / 7 / 9 / 11半音</strong> です。" },
+      { title: `第${state.target.degree.degree}音の距離`, copy: `第${state.target.degree.degree}音は主音から <strong>${state.target.degree.semitones}半音</strong> 上です。` },
+      { title: "移調の考え方", copy: "元の音名ではなく度数を保ちます。同じ役割を新しいキーの中で探してください。" },
+    ];
+  }
+
+  if (isHarmonyMode()) {
+    return [
+      { title: "主音を探す", copy: "フレーズが最も落ち着いて終われそうな音を歌い、その音を主音とするキーを試します。" },
+      { title: "変化音を聴く", copy: "F#、C#、G#などの有無は、C・G・D・Aメジャーを区別する手がかりになります。" },
+      { title: "コードを重ねて検証", copy: "各小節の長い音や強拍音が、置いたコードの構成音として自然に聞こえるか確認します。" },
+      { title: "機能の流れ", copy: "Tで安定し、SDで展開し、Dで次へ進みたくなる流れを探してください。" },
+    ];
   }
 
   if (state.mode === "scale") {
@@ -1675,6 +2090,39 @@ function updateKeyState() {
 
 // 手修正ポイント: 採点処理。自由練習はここを通らないのでスコアに反映されない
 function checkAnswer() {
+  if (state.mode === "interval" || state.mode === "transpose") {
+    const ok = state.mode === "transpose"
+      ? samePitchSet(state.selected.map(pitchNote), state.target.notes.map(pitchNote))
+      : arraysEqual(state.selected, state.target.notes);
+    record(ok);
+    state.solved = ok;
+    const correctPitch = state.mode === "transpose" ? pitchNote(state.target.notes[0]) : displayPitch(state.target.notes[0]);
+    const success = state.mode === "interval"
+      ? `正解：${state.target.root} から ${state.target.interval.name} 上は ${correctPitch}`
+      : `正解：${state.target.targetKey}メジャーの第${state.target.degree.degree}音は ${correctPitch}`;
+    renderAnswer(ok ? success : "不正解。基準音から半音で数え直してみよう。", ok ? "correct" : "incorrect");
+    updateControls();
+    return;
+  }
+
+  if (isHarmonyMode()) {
+    const barCount = state.target.bars.length;
+    const chords = Array.from({ length: barCount }, (_, index) => harmonyChordById(state.selected[index]));
+    const complete = chords.every(Boolean);
+    const keyOk = state.harmonyKey === state.target.key;
+    const matchingBars = complete ? chords.filter((chord, index) => chord.degree === state.target.degrees[index]).length : 0;
+    const ok = complete && keyOk && matchingBars === barCount;
+    record(ok);
+    state.solved = ok;
+    const feedback = !complete
+      ? `キーを選び、${barCount === 1 ? "コードを1つ" : `${barCount}小節すべてにコード`}配置してください。`
+      : `${keyOk ? "キーは正解。" : "キーが違います。"} コードは${barCount}小節中${matchingBars}小節一致。`;
+    renderAnswer(ok ? `${state.target.key}メジャー、${state.target.expected.map((chord) => chord.symbol).join(" → ")}。正解です。` : feedback, ok ? "correct" : "incorrect");
+    renderConceptBoard();
+    updateControls();
+    return;
+  }
+
   if (state.mode === "lesson") {
     const ok =
       state.target.answerMode === "chord"
@@ -2042,6 +2490,7 @@ function renderTextbook(activeId = TEXTBOOK_SECTIONS[0].id) {
         <div class="textbook-practice">
           <span>対応する実習</span>
           <strong>${active.practice}</strong>
+          ${active.practiceMode ? `<button type="button" data-start-practice="${active.practiceMode}">この単元を練習する</button>` : ""}
         </div>
       </article>
     </div>
@@ -2234,6 +2683,27 @@ function playTarget() {
     return;
   }
 
+  if (isHarmonyMode()) {
+    playMelody(state.target.bars);
+    flashKeys(state.target.notes);
+    return;
+  }
+
+  if (state.mode === "interval") {
+    const sequence = [state.target.rootPitch, state.target.notes[0]];
+    sequence.forEach((pitch, index) => playNote(pitchNote(pitch), pitchOctave(pitch), index * 0.45, 0.4));
+    flashKeys(sequence);
+    return;
+  }
+
+  if (state.mode === "transpose") {
+    const rootPitch = `${state.target.targetKey}4`;
+    const sequence = [rootPitch, state.target.notes[0]];
+    sequence.forEach((pitch, index) => playNote(pitchNote(pitch), pitchOctave(pitch), index * 0.45, 0.4));
+    flashKeys(sequence);
+    return;
+  }
+
   const notes = state.target.notes;
   if (state.mode === "scale" || state.mode === "diatonic" || (state.mode === "lesson" && state.target.answerMode === "scale")) {
     notes.forEach((pitch, index) => playNote(pitchNote(pitch), pitchOctave(pitch), index * 0.22, 0.2));
@@ -2283,6 +2753,11 @@ function playSelectedAnswer() {
     return;
   }
 
+  if (isHarmonyMode()) {
+    playHarmonization();
+    return;
+  }
+
   if (state.mode === "function") {
     const assignedChords = state.target.chords.filter((chord) => state.target.assignments[chord.id]);
     const focusedChord = state.selected[0] ? [chordById(state.selected[0])].filter(Boolean) : [];
@@ -2304,6 +2779,11 @@ function playSuccess(target) {
     return;
   }
 
+  if (target.type === "harmonize") {
+    playHarmonization();
+    return;
+  }
+
   if ((target.type === "lesson" && target.answerMode === "scale") || target.type === "scale" || target.type === "diatonic") {
     target.notes.forEach((pitch, index) => {
       playNote(pitchNote(pitch), pitchOctave(pitch), index * 0.08, 0.18);
@@ -2317,6 +2797,28 @@ function playSuccess(target) {
 function chordPitchesFromTarget(target) {
   if (!target?.root || !target?.notes) return [];
   return chordPitchesFromNotes(target.root, target.notes, 4);
+}
+
+function playMelody(bars, barDuration = 0.9) {
+  bars.forEach((bar, barIndex) => {
+    bar.forEach((pitch, noteIndex) => {
+      playNote(pitchNote(pitch), pitchOctave(pitch), barIndex * barDuration + noteIndex * (barDuration / bar.length), 0.32);
+    });
+  });
+}
+
+function playHarmonization() {
+  const barDuration = 0.9;
+  playMelody(state.target.bars, barDuration);
+  const played = [...state.target.notes];
+  Array.from({ length: state.target.bars.length }, (_, index) => harmonyChordById(state.selected[index])).forEach((chord, index) => {
+    if (!chord) return;
+    chordTonePitches(chord, 3).forEach((pitch) => {
+      playNote(pitchNote(pitch), pitchOctave(pitch), index * barDuration, 0.78);
+      played.push(pitch);
+    });
+  });
+  flashKeys(played);
 }
 
 function chordPitchesFromNotes(root, notes, rootOctave = 4) {
@@ -2611,7 +3113,11 @@ function practiceIntervalText(noteNames) {
 
 // 手修正ポイント: 鍵盤ではなくカードUIを使う採点モード。自由練習は含めない
 function usesConceptBoard() {
-  return ["diatonic", "function", "progression"].includes(state.mode);
+  return ["diatonic", "function", "progression", "harmonize", "harmonyOne"].includes(state.mode);
+}
+
+function isHarmonyMode(mode = state.mode) {
+  return mode === "harmonize" || mode === "harmonyOne";
 }
 
 function diatonicChords(root) {
@@ -2818,6 +3324,11 @@ function scalePitches(root, octave, intervals) {
 function transpose(root, interval) {
   const start = NOTES.indexOf(root);
   return NOTES[(start + interval) % NOTES.length];
+}
+
+function transposePitch(pitch, interval) {
+  const absolute = NOTES.indexOf(pitchNote(pitch)) + pitchOctave(pitch) * 12 + interval;
+  return `${NOTES[((absolute % 12) + 12) % 12]}${Math.floor(absolute / 12)}`;
 }
 
 function pitchNote(pitch) {

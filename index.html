@@ -4,7 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Chord Quest</title>
-    <link rel="stylesheet" href="./styles.css?v=491b9b4" />
+    <link rel="stylesheet" href="./styles.css?v=c31de92" />
+    <link rel="stylesheet" href="./rich-theme.css?v=c31de92" />
   </head>
   <body>
     <!-- 手修正ポイント: アプリ全体の外枠。大きな余白や全体幅は styles.css の .app-shell / .stage を調整 -->
@@ -13,23 +14,31 @@
         <!-- 手修正ポイント: 上部ナビ。タブの追加・並び替えはこの nav 内の button を編集 -->
         <header class="topbar">
           <div class="brand-block">
-            <!-- 手修正ポイント: メニューボタンは現在見た目だけ。サイドバー開閉を入れるなら app.js でイベント追加 -->
-            <button class="menu-button" type="button" aria-label="メニュー">☰</button>
             <h1>Chord Quest</h1>
           </div>
           <nav class="mode-tabs" aria-label="ゲームモード">
-            <!-- 手修正ポイント: data-mode は app.js の MODES と対応。表示名だけ変えるならボタン内テキストを変更 -->
+            <!-- 主要導線は4分類。個別演習は「練習」メニュー内にまとめる -->
             <button class="tab active" data-mode="mypage">ホーム</button>
-            <button class="tab" data-mode="textbook">理論</button>
-            <button class="tab" data-mode="lesson">演習</button>
-            <button class="tab" data-mode="chord">コード</button>
-            <button class="tab" data-mode="scale">スケール</button>
-            <button class="tab" data-mode="diatonic">ダイアトニック</button>
-            <button class="tab" data-mode="function">機能</button>
-            <button class="tab" data-mode="progression">進行</button>
-            <button class="tab" data-mode="ear">耳トレ</button>
-            <!-- 手修正ポイント: 自由練習モード。スコア非反映の解析専用モードなので右端に配置 -->
-            <button class="tab" data-mode="practice">自由練習</button>
+            <button class="tab" data-mode="textbook">学ぶ</button>
+            <div class="training-menu">
+              <button class="tab training-trigger" id="training-trigger" type="button" aria-expanded="false" aria-controls="training-popover">
+                練習 <span aria-hidden="true">⌄</span>
+              </button>
+              <div class="training-popover hidden" id="training-popover">
+                <button data-mode="interval">音程</button>
+                <button data-mode="transpose">度数と移調</button>
+                <button data-mode="harmonyOne">1小節の和声</button>
+                <button data-mode="harmonize">4小節の和声</button>
+                <button data-mode="lesson">総合演習</button>
+                <button data-mode="chord">コード</button>
+                <button data-mode="scale">スケール</button>
+                <button data-mode="diatonic">ダイアトニック</button>
+                <button data-mode="function">機能</button>
+                <button data-mode="progression">進行</button>
+                <button data-mode="ear">耳トレ</button>
+              </div>
+            </div>
+            <button class="tab" data-mode="practice">自由演奏</button>
           </nav>
           <div class="topbar-tools">
             <div class="account-panel">
@@ -156,6 +165,6 @@
       </section>
     </main>
 
-    <script src="./app.js?v=491b9b4"></script>
+    <script src="./app.js?v=c31de92"></script>
   </body>
 </html>
