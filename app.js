@@ -426,8 +426,8 @@ const MODES = {
     label: "スケールを弾く",
   },
   practice: {
-    title: "自由練習",
-    copy: "鍵盤で自由に音を選ぶと、近いコードやスケール候補をリアルタイムに表示します。スコアや学習履歴には反映しません。",
+    title: "小さな作曲室",
+    copy: "鍵盤で響きを探し、4つのコードを並べて、自分だけのループを作りましょう。",
     label: "解析",
   },
   diatonic: {
@@ -447,7 +447,7 @@ const MODES = {
   },
   ear: {
     title: "響きの聞き取り",
-    copy: "お手本の響きを聞いて、メジャーかマイナーかを選びます。最初は音の高さより明暗に集中します。",
+    copy: "まずはメジャーとマイナーの聴き分けから。慣れたらセブンス、鍵盤での再現へ進みます。",
     label: "耳で選ぶ",
   },
   mypage: {
@@ -635,6 +635,9 @@ const state = {
   solved: false,
   activeBar: 0,
   harmonyKey: null,
+  earChoice: null,
+  saving: false,
+  navigationId: 0,
 };
 
 // 手修正ポイント: DOM参照一覧。HTMLの id/class を変えたらここも合わせる
@@ -690,6 +693,7 @@ async function init() {
   await loadAccounts();
   renderKeyboard();
   bindEvents();
+  initExperience();
   renderAccountSelect();
   await selectInitialAccount();
   await setMode("mypage");
@@ -737,6 +741,10 @@ function bindEvents() {
   els.toggleHint.addEventListener("click", () => toggleHint());
   els.check.addEventListener("click", () => checkAnswer());
   els.clear.addEventListener("click", () => {
+    if (state.saving) return;
+    stopAudio();
+    state.earChoice = null;
+    resetExplanation();
     state.selected = [];
     state.activeBar = 0;
     if (isHarmonyMode()) state.harmonyKey = null;
@@ -750,8 +758,9 @@ function bindEvents() {
     renderHint();
     updateControls();
     updateKeyState();
+    renderExperienceControls();
   });
-  els.next.addEventListener("click", () => nextChallenge());
+  els.next.addEventListener("click", () => nextChallenge({ defer: true }));
 }
 
 function openGameDb() {
@@ -822,6 +831,7 @@ function storeRequest(storeName, mode, action) {
 
     transaction.oncomplete = () => resolve(result);
     transaction.onerror = () => reject(transaction.error);
+    transaction.onabort = () => reject(transaction.error || new Error("Transaction aborted"));
   });
 }
 
@@ -960,9 +970,11 @@ async function selectInitialAccount() {
 }
 
 async function switchAccount(accountId) {
+  if (state.saving) { els.accountSelect.value = state.account.id; return; }
   const account = state.accounts.find((item) => item.id === accountId);
   if (!account) return;
   await applyAccount(account);
+  if (state.account.id !== account.id) return;
   if (state.mode === "mypage") {
     await renderMyPageTop();
   } else if (state.mode === "textbook") {
@@ -975,6 +987,8 @@ async function switchAccount(accountId) {
 }
 
 async function applyAccount(account) {
+  state.navigationId += 1;
+  stopAudio();
   state.account = account;
   state.score = account.score || 0;
   state.streak = account.streak || 0;
@@ -982,12 +996,14 @@ async function applyAccount(account) {
   state.attempts = account.attempts || 0;
   localStorage.setItem(LAST_ACCOUNT_KEY, account.id);
   els.accountSelect.value = account.id;
+  loadExperienceAccount();
   await refreshSolvedCount();
   await refreshLearningSummary();
   renderStats();
 }
 
 async function createAccountFromPrompt() {
+  if (state.saving) return;
   const name = prompt("アカウント名を入力してください", `Player ${state.accounts.length + 1}`);
   if (!name?.trim()) return;
   const account = createAccountRecord(name.trim());
@@ -1007,7 +1023,7 @@ async function createAccountFromPrompt() {
 }
 
 async function pickQuizForMode(mode) {
-  const quizzes = await requestToPromise(
+  let quizzes = await requestToPromise(
     state.db.transaction("quizzes", "readonly").objectStore("quizzes").index("mode").getAll(mode),
   );
 
@@ -1018,7 +1034,9 @@ async function pickQuizForMode(mode) {
     return quiz;
   }
 
-  return randomItem(quizzes);
+  quizzes = quizzes.filter(quizAvailableAtEarLevel);
+  const progress = await requestToPromise(state.db.transaction("progress", "readonly").objectStore("progress").index("accountId").getAll(state.account.id));
+  return chooseAdaptiveQuiz(quizzes, progress);
 }
 
 async function pickNextQuizAfter(quizId) {
@@ -1028,7 +1046,7 @@ async function pickNextQuizAfter(quizId) {
   const quizzes = await requestToPromise(
     state.db.transaction("quizzes", "readonly").objectStore("quizzes").index("mode").getAll(current.mode),
   );
-  const sorted = sortQuizzesForMode(quizzes);
+  const sorted = sortQuizzesForMode(quizzes.filter(quizAvailableAtEarLevel));
   const index = sorted.findIndex((quiz) => quiz.id === quizId);
   return sorted[(index + 1) % sorted.length] || sorted[0] || current;
 }
@@ -1217,11 +1235,14 @@ function harmonyTargetFromChallenge(quiz, challenge) {
 
 // 手修正ポイント: 鍵盤ボタンの生成。見た目は CSS、押した時の処理は selectNote
 function renderKeyboard() {
+  els.keyboard.innerHTML = "";
   WHITE_SEQUENCE.forEach((note, index) => {
     const button = document.createElement("button");
     button.className = "key white";
     button.dataset.note = note;
     button.dataset.octave = String(4 + Math.floor(index / 7));
+    button.setAttribute("aria-label", `${note}${button.dataset.octave}`);
+    button.setAttribute("aria-pressed", "false");
     button.innerHTML = `<span>${note}</span>`;
     button.addEventListener("click", () => selectNote(note, button.dataset.octave));
     els.keyboard.appendChild(button);
@@ -1232,6 +1253,9 @@ function renderKeyboard() {
     button.className = "key black";
     button.dataset.note = note;
     button.dataset.octave = String(4 + Math.floor((slot - 1) / 7));
+    button.dataset.slot = String(slot);
+    button.setAttribute("aria-label", `${note.replace('#', 'シャープ')}${button.dataset.octave}`);
+    button.setAttribute("aria-pressed", "false");
     button.style.left = `${(slot / 15) * 100}%`;
     button.innerHTML = `<span>${note}</span>`;
     button.addEventListener("click", () => selectNote(note, button.dataset.octave));
@@ -1255,8 +1279,14 @@ function updateNavigationState(mode) {
 
 // 手修正ポイント: モード切替の中心。自由練習だけ専用クラスを付けて固定レイアウトにする
 async function setMode(mode) {
+  if (state.saving) return;
+  state.navigationId += 1;
+  stopAudio();
+  experience.session = null;
+  experience.sessionComplete = false;
   state.mode = mode;
   state.selected = [];
+  state.earChoice = null;
   state.followQuizOrder = false;
   closeTrainingMenu();
   document.body.classList.toggle("practice-active", mode === "practice");
@@ -1271,6 +1301,9 @@ async function setMode(mode) {
   els.gamePanel.classList.toggle("hidden", mode === "mypage" || mode === "textbook");
   els.mypagePanel.classList.toggle("hidden", mode !== "mypage");
   els.textbookPanel.classList.toggle("hidden", mode !== "textbook");
+  document.body.dataset.mode = mode;
+  resetExplanation();
+  renderExperienceControls();
   if (mode === "mypage") {
     await renderMyPageTop();
     return;
@@ -1301,10 +1334,17 @@ function showPracticeMode() {
   updateHintVisibility();
   updateControls();
   updateKeyState();
+  renderStudio();
+  renderExperienceControls();
 }
 
 // 手修正ポイント: 問題モードの次問取得。自由練習では呼ばない
-async function nextChallenge() {
+async function nextChallenge({ defer = false } = {}) {
+  if (state.saving) return;
+  const navigationId = ++state.navigationId;
+  stopAudio();
+  if (defer && !state.solved && state.target && !await deferCurrentQuiz()) return;
+  if (experience.session) return advanceSession();
   state.selected = [];
   state.activeBar = 0;
   if (isHarmonyMode()) state.harmonyKey = null;
@@ -1315,20 +1355,44 @@ async function nextChallenge() {
     state.followQuizOrder && state.target?.id
       ? await pickNextQuizAfter(state.target.id)
       : await pickQuizForMode(state.mode);
-  await showQuiz(quiz);
+  if (navigationId === state.navigationId) await showQuiz(quiz, navigationId);
 }
 
-async function showQuiz(quiz) {
+async function showQuiz(quiz, navigationId = state.navigationId) {
+  const accountId = state.account.id;
+  const progress = await getProgressForQuiz(quiz.id);
+  if (navigationId !== state.navigationId || accountId !== state.account.id) return;
+  stopAudio();
+  state.selected = [];
+  state.earChoice = null;
+  state.hintCount = 0;
+  state.solved = false;
+  state.activeBar = 0;
+  state.harmonyKey = null;
+  if (!quizAvailableAtEarLevel(quiz)) {
+    experience.settings.earLevel = ['major7', 'dominant7', 'minor7'].includes(quiz.payload.kind) ? 2 : 3;
+    toast(`この問題に合わせて耳トレをステップ${experience.settings.earLevel}に切り替えました。`);
+  }
+  resetExplanation();
   state.target = targetFromQuiz(quiz);
-  state.target.progress = await getProgressForQuiz(state.target.id);
+  state.target.progress = progress;
+  const savedAnswer = experience.session?.results[quiz.id]?.answer;
+  if (savedAnswer) {
+    state.selected = [...savedAnswer.selected];
+    state.earChoice = savedAnswer.earChoice;
+    state.harmonyKey = savedAnswer.harmonyKey;
+    state.hintCount = savedAnswer.hintCount;
+    if (state.target.assignments) state.target.assignments = { ...savedAnswer.assignments };
+    state.solved = Boolean(experience.session.results[quiz.id].correct);
+  }
   els.prompt.textContent = state.target.prompt;
   els.promptLabel.textContent =
     state.mode === "lesson" ? `${MODES.lesson.label} ${state.target.step}/100` : MODES[state.mode].label;
   els.modeCopy.textContent = state.target.copy || MODES[state.mode].copy;
 
-  if (state.mode === "ear" || isHarmonyMode()) {
-    setTimeout(playTarget, 160);
-  }
+  state.keyLight = state.mode !== "ear" && !isHarmonyMode();
+  setKeyLight(state.keyLight);
+  rememberQuiz(quiz.id);
 
   renderAnswer();
   renderConceptBoard();
@@ -1337,17 +1401,25 @@ async function showQuiz(quiz) {
   updateHintVisibility();
   updateControls();
   updateKeyState();
+  renderExperienceControls();
+  await refreshLearningSummary();
 }
 
 async function openQuizFromHistory(quizId) {
+  if (state.saving) return;
+  const navigationId = ++state.navigationId;
   const quiz = await requestToPromise(state.db.transaction("quizzes", "readonly").objectStore("quizzes").get(quizId));
-  if (!quiz) return;
+  if (!quiz || navigationId !== state.navigationId) return;
 
+  experience.sessionComplete = false;
   state.mode = quiz.mode;
   state.selected = [];
   state.hintCount = 0;
   state.solved = false;
   state.followQuizOrder = true;
+  document.body.dataset.mode = quiz.mode;
+  document.body.classList.remove("practice-active");
+  els.gamePanel.classList.remove("practice-mode");
   updateNavigationState(quiz.mode);
   els.modeTitle.textContent = MODES[quiz.mode].title;
   els.modeCopy.textContent = MODES[quiz.mode].copy;
@@ -1355,22 +1427,25 @@ async function openQuizFromHistory(quizId) {
   els.gamePanel.classList.remove("hidden");
   els.mypagePanel.classList.add("hidden");
   els.textbookPanel.classList.add("hidden");
-  await showQuiz(quiz);
+  await showQuiz(quiz, navigationId);
 }
 
 async function openProgressionPattern(patternIndex) {
+  if (state.saving || experience.session) return;
   if (!state.target?.root || Number.isNaN(patternIndex)) return;
   const quizId = `progression-${state.target.root}-${patternIndex}`;
+  const navigationId = ++state.navigationId;
   const quiz = await requestToPromise(state.db.transaction("quizzes", "readonly").objectStore("quizzes").get(quizId));
-  if (!quiz) return;
+  if (!quiz || navigationId !== state.navigationId) return;
   state.selected = [];
   state.hintCount = 0;
   state.solved = false;
-  await showQuiz(quiz);
+  await showQuiz(quiz, navigationId);
 }
 
 // 手修正ポイント: 鍵盤クリック時の分岐。自由練習は同じピッチ単位でトグルし、問題モードは採点用に保持
 function selectNote(note, octave) {
+  if (state.solved || state.saving) return;
   if (usesConceptBoard()) return;
 
   ensureAudio();
@@ -1399,6 +1474,7 @@ function selectNote(note, octave) {
   renderPracticeAnalysis();
   renderHint();
   updateKeyState();
+  resetExplanation();
 }
 
 // 手修正ポイント: 選択中の音/採点結果の表示。自由練習では固定高の横並びリストになる
@@ -1664,7 +1740,7 @@ function renderFunctionBoard() {
           ${shuffleStable(unassigned, `${state.target.root}-function`)
             .map(
               (chord) => `
-                <button class="chord-card" data-action="focus-function" data-id="${chord.id}">
+                <button class="chord-card ${state.selected[0] === chord.id ? 'selected' : ''}" data-action="focus-function" data-id="${chord.id}" aria-pressed="${state.selected[0] === chord.id}">
                   <span>${chord.degree}</span>
                   <strong>${chord.symbol}</strong>
                   <small>${chord.note}</small>
@@ -1688,7 +1764,7 @@ function renderFunctionBoard() {
                   .filter((chord) => state.target.assignments[chord.id] === role)
                   .map(
                     (chord) => `
-                      <button class="assigned-card" data-action="focus-function" data-id="${chord.id}">
+                      <button class="assigned-card" data-action="focus-function" data-id="${chord.id}" aria-pressed="${state.selected[0] === chord.id}">
                         <span>${chord.degree}</span>
                         <strong>${chord.symbol}</strong>
                       </button>
@@ -1788,7 +1864,7 @@ function renderProgressionLibrary(root) {
             .map((chord) => chord.symbol)
             .join(" - ");
           return `
-            <button type="button" class="progression-library-item" data-action="open-progression-pattern" data-pattern-index="${index}">
+            <button type="button" class="progression-library-item" data-action="open-progression-pattern" data-pattern-index="${index}" ${experience.session ? 'disabled' : ''}>
               <span>${pattern.category || "進行"}</span>
               <strong>${pattern.name}</strong>
               <small>${symbols}</small>
@@ -1803,6 +1879,7 @@ function renderProgressionLibrary(root) {
 function bindConceptButtons() {
   els.conceptBoard.querySelectorAll("button").forEach((button) => {
     button.addEventListener("click", () => {
+      if (state.saving) return;
       const { action, id, role } = button.dataset;
 
       if (action === "set-playback") {
@@ -1816,7 +1893,14 @@ function bindConceptButtons() {
         return;
       }
 
+      if (action === "focus-harmony-bar") {
+        state.activeBar = Number(button.dataset.bar);
+        renderConceptBoard();
+        return;
+      }
+
       if (state.solved) return;
+      resetExplanation();
 
       if (action === "choose-harmony-key") {
         state.harmonyKey = button.dataset.key;
@@ -1825,12 +1909,6 @@ function bindConceptButtons() {
         renderAnswer();
         renderConceptBoard();
         updateControls();
-        return;
-      }
-
-      if (action === "focus-harmony-bar") {
-        state.activeBar = Number(button.dataset.bar);
-        renderConceptBoard();
         return;
       }
 
@@ -2049,11 +2127,12 @@ function theoryCardsForTarget() {
 }
 
 function toggleHint() {
-  if (!state.target || state.solved) return;
+  if (!state.target || state.solved || state.saving) return;
   const hintTotal = theoryCardsForTarget().length;
   state.hintCount = Math.min(state.hintCount + 1, hintTotal);
   renderHint();
   updateHintVisibility();
+  renderExperienceControls();
 }
 
 function updateHintVisibility() {
@@ -2062,11 +2141,10 @@ function updateHintVisibility() {
   els.hintPanel.classList.toggle("hidden", state.hintCount === 0);
   els.toggleHint.textContent = isComplete ? "ヒントはすべて表示済み" : `ヒントを1つ見る ${state.hintCount}/${hintTotal}`;
   els.toggleHint.setAttribute("aria-expanded", String(state.hintCount > 0));
-  els.toggleHint.disabled = isComplete || state.solved;
-  els.hintCost.textContent =
-    state.hintCount > 0
-      ? `この問題は正解点が${Math.max(0, 100 - state.hintCount * 25)}%`
-      : "ヒント1つごとに正解点が25%減";
+  els.toggleHint.disabled = isComplete || state.solved || state.saving;
+  els.hintCost.textContent = experience.settings.studyStyle === "challenge"
+    ? `チャレンジ：ヒント1つにつき得点が25%減（現在${Math.max(0, 100 - state.hintCount * 25)}%）`
+    : "練習ではヒントを使っても減点なし";
 }
 
 // 手修正ポイント: ボタン表示/非表示の集約。自由練習では判定・次へ・ヒント・お手本を隠す
@@ -2079,147 +2157,88 @@ function updateControls() {
   els.playTarget.classList.toggle("hidden", isPractice);
   els.solvedStatus.classList.toggle("hidden", isPractice);
   els.playAnswer.disabled = !canPlaySelectedAnswer();
+  els.check.disabled = state.saving;
+  els.next.disabled = state.saving;
+  els.clear.disabled = state.saving;
+  els.accountSelect.disabled = state.saving;
+  els.createAccount.disabled = state.saving;
+  document.querySelector("#keyboard-wrap").classList.toggle("hidden", usesConceptBoard() || (state.mode === "ear" && experience.settings.earLevel < 3));
+  document.querySelector("#studio-panel").classList.toggle("hidden", !isPractice);
   updateHintVisibility();
 }
 
 function updateKeyState() {
   document.querySelectorAll(".key").forEach((key) => {
     key.classList.toggle("selected", state.selected.includes(`${key.dataset.note}${key.dataset.octave}`));
+    key.setAttribute("aria-pressed", String(state.selected.includes(`${key.dataset.note}${key.dataset.octave}`)));
   });
+  updateKeyboardRange();
 }
 
 // 手修正ポイント: 採点処理。自由練習はここを通らないのでスコアに反映されない
-function checkAnswer() {
-  if (state.mode === "interval" || state.mode === "transpose") {
-    const ok = state.mode === "transpose"
-      ? samePitchSet(state.selected.map(pitchNote), state.target.notes.map(pitchNote))
-      : arraysEqual(state.selected, state.target.notes);
-    record(ok);
-    state.solved = ok;
-    const correctPitch = state.mode === "transpose" ? pitchNote(state.target.notes[0]) : displayPitch(state.target.notes[0]);
-    const success = state.mode === "interval"
-      ? `正解：${state.target.root} から ${state.target.interval.name} 上は ${correctPitch}`
-      : `正解：${state.target.targetKey}メジャーの第${state.target.degree.degree}音は ${correctPitch}`;
-    renderAnswer(ok ? success : "不正解。基準音から半音で数え直してみよう。", ok ? "correct" : "incorrect");
-    updateControls();
+async function checkAnswer() {
+  if (!state.target || state.solved || state.saving || state.mode === "practice") return;
+  const result = gradeAnswer();
+  if (result.incomplete) {
+    renderAnswer(result.detail, "neutral");
     return;
   }
-
-  if (isHarmonyMode()) {
-    const barCount = state.target.bars.length;
-    const chords = Array.from({ length: barCount }, (_, index) => harmonyChordById(state.selected[index]));
-    const complete = chords.every(Boolean);
-    const keyOk = state.harmonyKey === state.target.key;
-    const matchingBars = complete ? chords.filter((chord, index) => chord.degree === state.target.degrees[index]).length : 0;
-    const ok = complete && keyOk && matchingBars === barCount;
-    record(ok);
-    state.solved = ok;
-    const feedback = !complete
-      ? `キーを選び、${barCount === 1 ? "コードを1つ" : `${barCount}小節すべてにコード`}配置してください。`
-      : `${keyOk ? "キーは正解。" : "キーが違います。"} コードは${barCount}小節中${matchingBars}小節一致。`;
-    renderAnswer(ok ? `${state.target.key}メジャー、${state.target.expected.map((chord) => chord.symbol).join(" → ")}。正解です。` : feedback, ok ? "correct" : "incorrect");
+  state.saving = true;
+  updateControls();
+  renderExperienceControls();
+  try {
+    if (!await record(result.ok)) {
+      renderAnswer("履歴を保存できませんでした。回答は残っています。もう一度、答え合わせしてください。", "neutral");
+      return;
+    }
+    state.solved = result.ok;
+    noteSessionAnswer(result.ok);
+    renderAnswer(result.ok ? "できました！ 響きと仕組みを確認しましょう。" : "あと少し。違いを確かめてみましょう。", result.ok ? "correct" : "incorrect");
     renderConceptBoard();
+    renderExplanation(result);
+    renderExperienceControls();
+  } finally {
+    state.saving = false;
     updateControls();
-    return;
-  }
-
-  if (state.mode === "lesson") {
-    const ok =
-      state.target.answerMode === "chord"
-        ? samePitchSet(state.selected.map(pitchNote), state.target.notes)
-        : arraysEqual(state.selected, state.target.notes);
-    record(ok);
-    state.solved = ok;
-    renderAnswer(ok ? `${state.target.root} ${state.target.name} 完成` : "不正解。もう一度試してください。", ok ? "correct" : "incorrect");
-    updateControls();
-    return;
-  }
-
-  if (state.mode === "chord") {
-    const selectedNotes = state.selected.map(pitchNote);
-    const ok = samePitchSet(selectedNotes, state.target.notes);
-    record(ok);
-    state.solved = ok;
-    renderAnswer(ok ? "正解" : "不正解。もう一度試してください。", ok ? "correct" : "incorrect");
-    updateControls();
-    return;
-  }
-
-  if (state.mode === "ear") {
-    const selectedNotes = state.selected.map(pitchNote);
-    const ok = samePitchSet(selectedNotes, state.target.notes);
-    record(ok);
-    state.solved = ok;
-    renderAnswer(ok ? `正解: ${state.target.root} ${state.target.name}` : "不正解。もう一度試してください。", ok ? "correct" : "incorrect");
-    updateControls();
-    return;
-  }
-
-  if (state.mode === "diatonic") {
-    const ok = arraysEqual(state.selected, state.target.chords.map((chord) => chord.id));
-    record(ok);
-    state.solved = ok;
-    renderAnswer(ok ? `${state.target.root}メジャーの7コード完成` : "不正解。もう一度試してください。", ok ? "correct" : "incorrect");
-    renderConceptBoard();
-    updateControls();
-    return;
-  }
-
-  if (state.mode === "function") {
-    const ok = state.target.chords.every((chord) => state.target.assignments[chord.id] === chord.role);
-    record(ok);
-    state.solved = ok;
-    renderAnswer(ok ? "全コードを正しく仕分けました" : "不正解。もう一度試してください。", ok ? "correct" : "incorrect");
-    renderConceptBoard();
-    updateControls();
-    return;
-  }
-
-  if (state.mode === "progression") {
-    const expected = state.target.progression.map((chord) => chord.id);
-    const ok = arraysEqual(state.selected, expected);
-    record(ok);
-    state.solved = ok;
-    renderAnswer(ok ? `${state.target.pattern.name} 完成` : "不正解。もう一度試してください。", ok ? "correct" : "incorrect");
-    renderConceptBoard();
-    updateControls();
-    return;
-  }
-
-  if (state.mode === "scale") {
-    const ok = arraysEqual(state.selected, state.target.notes);
-    record(ok);
-    state.solved = ok;
-    renderAnswer(ok ? "正解" : "不正解。もう一度試してください。", ok ? "correct" : "incorrect");
-    updateControls();
+    renderExperienceControls();
   }
 }
 
 // 手修正ポイント: スコア/連続正解/DB保存の入口。採点対象モードだけが呼ぶ
-function record(ok) {
+async function record(ok) {
+  const before = { attempts: state.attempts, correct: state.correct, streak: state.streak, score: state.score };
   state.attempts += 1;
   if (ok) {
     state.correct += 1;
     state.streak += 1;
     const baseScore = 100 + Math.min(state.streak * 15, 150);
     state.score += Math.round(baseScore * hintScoreMultiplier());
-    playSuccess(state.target);
   } else {
     state.streak = 0;
-    state.score = Math.max(0, state.score - 20);
+    if (experience.settings.studyStyle === "challenge") state.score = Math.max(0, state.score - 20);
   }
-  persistAnswer(ok).catch((error) => console.error("Failed to save progress", error));
+  try { await persistAnswer(ok); }
+  catch (error) {
+    Object.assign(state, before);
+    console.error("Failed to save progress", error);
+    toast("学習履歴を保存できませんでした。ブラウザの空き容量を確認してください。");
+    renderStats();
+    return false;
+  }
+  if (ok) playSuccess(state.target);
   renderStats();
+  return true;
 }
 
 async function persistAnswer(ok) {
-  if (!state.account || !state.target) return;
+  if (!state.account || !state.target) throw new Error("No active account or quiz");
 
   const accountId = state.account.id;
   const targetId = state.target.id;
   const mode = state.mode;
   const selected = [...state.selected];
   const answer = [...(state.target.notes || [])];
+  const answerDetails = { earChoice: state.earChoice, earLevel: experience.settings.earLevel, harmonyKey: state.harmonyKey, assignments: { ...state.target.assignments }, hintCount: state.hintCount, studyStyle: experience.settings.studyStyle };
   const now = new Date().toISOString();
   const account = {
     ...state.account,
@@ -2241,6 +2260,11 @@ async function persistAnswer(ok) {
     solved: Boolean(previous?.solved || ok),
     lastCorrectAt: ok ? now : previous?.lastCorrectAt || null,
     lastAttemptAt: now,
+    lastResult: ok,
+    reviewRequestedAt: null,
+    reviewStreak: ok ? (previous?.reviewStreak || 0) + 1 : 0,
+    nextReviewAt: new Date(Date.now() + (ok ? [1, 3, 7, 14, 30][Math.min(previous?.reviewStreak || 0, 4)] : 0) * 86400000).toISOString(),
+    earLevel: mode === "ear" ? experience.settings.earLevel : previous?.earLevel,
   };
 
   await new Promise((resolve, reject) => {
@@ -2254,10 +2278,12 @@ async function persistAnswer(ok) {
       ok,
       selected,
       answer,
+      ...answerDetails,
       createdAt: now,
     });
     transaction.oncomplete = () => resolve();
     transaction.onerror = () => reject(transaction.error);
+    transaction.onabort = () => reject(transaction.error || new Error("Save aborted"));
   });
 
   state.accounts = state.accounts.map((item) => (item.id === account.id ? account : item));
@@ -2267,12 +2293,11 @@ async function persistAnswer(ok) {
   if (state.target?.id === targetId) {
     state.target.progress = progress;
   }
-  if (ok && !previous?.solved && state.account?.id === accountId) {
-    await refreshSolvedCount();
-  }
-  if (state.account?.id === accountId) {
-    await refreshLearningSummary();
-  }
+  // The transaction has committed; a summary read failure must not undo the score.
+  try {
+    if (ok && !previous?.solved && state.account?.id === accountId) await refreshSolvedCount();
+    if (state.account?.id === accountId) await refreshLearningSummary();
+  } catch (error) { console.error("Failed to refresh summary", error); }
   if (state.target?.id === targetId) {
     renderSolvedStatus();
   }
@@ -2280,7 +2305,7 @@ async function persistAnswer(ok) {
 }
 
 function hintScoreMultiplier() {
-  return Math.max(0, 1 - state.hintCount * 0.25);
+  return experience.settings.studyStyle === "challenge" ? Math.max(0, 1 - state.hintCount * 0.25) : 1;
 }
 
 function progressKey(accountId, quizId) {
@@ -2298,9 +2323,11 @@ async function refreshSolvedCount() {
     return;
   }
 
+  const accountId = state.account.id;
   const records = await requestToPromise(
-    state.db.transaction("progress", "readonly").objectStore("progress").index("accountId").getAll(state.account.id),
+    state.db.transaction("progress", "readonly").objectStore("progress").index("accountId").getAll(accountId),
   );
+  if (accountId !== state.account.id) return;
   state.solvedCount = records.filter((record) => record.solved).length;
 }
 
@@ -2310,12 +2337,15 @@ async function refreshLearningSummary() {
     return;
   }
 
+  const accountId = state.account.id;
+  const navigationId = state.navigationId;
   const progressRecords = await requestToPromise(
-    state.db.transaction("progress", "readonly").objectStore("progress").index("accountId").getAll(state.account.id),
+    state.db.transaction("progress", "readonly").objectStore("progress").index("accountId").getAll(accountId),
   );
   const attemptRecords = await requestToPromise(
-    state.db.transaction("attemptsLog", "readonly").objectStore("attemptsLog").index("accountId").getAll(state.account.id),
+    state.db.transaction("attemptsLog", "readonly").objectStore("attemptsLog").index("accountId").getAll(accountId),
   );
+  if (accountId !== state.account.id || navigationId !== state.navigationId) return;
   const todayAttempts = attemptRecords.filter((record) => isToday(record.createdAt));
   const todayCorrect = todayAttempts.filter((record) => record.ok).length;
   const todayAccuracy = todayAttempts.length ? Math.round((todayCorrect / todayAttempts.length) * 100) : null;
@@ -2333,6 +2363,8 @@ async function refreshLearningSummary() {
       attempts: todayAttempts.length,
       accuracy: todayAccuracy,
       progressions: countTodayNewProgressions(attemptRecords, progressRecords),
+      unit: learningUnitForMode(PLAY_MODES.includes(state.mode) ? state.mode : experience.data.lastMode || "interval"),
+      unitSolved: new Set(todayAttempts.filter(record => record.ok && learningUnitForMode(record.mode).id === learningUnitForMode(PLAY_MODES.includes(state.mode) ? state.mode : experience.data.lastMode || "interval").id).map(record => record.quizId)).size,
     },
   });
 }
@@ -2427,9 +2459,10 @@ function renderLearningSummary(summary) {
   renderGoal(
     els.goalProgressionsDot,
     els.goalProgressionsValue,
-    summary.goals.progressions >= DAILY_GOALS.progressions,
-    `${Math.min(summary.goals.progressions, DAILY_GOALS.progressions)} / ${DAILY_GOALS.progressions}`,
+    (summary.goals.unitSolved || 0) >= 3,
+    `${Math.min(summary.goals.unitSolved || 0, 3)} / 3`,
   );
+  document.querySelector("#goal-unit-label").textContent = `${summary.goals.unit?.short || "基礎"}を3問練習`;
 }
 
 function renderGoal(dot, valueEl, done, value) {
@@ -2463,6 +2496,8 @@ function renderSolvedStatus() {
 }
 
 function renderTextbook(activeId = TEXTBOOK_SECTIONS[0].id) {
+  stopAudio();
+  experience.activeSection = activeId;
   const active = TEXTBOOK_SECTIONS.find((section) => section.id === activeId) || TEXTBOOK_SECTIONS[0];
   els.textbookPanel.innerHTML = `
     <div class="textbook-layout">
@@ -2487,10 +2522,11 @@ function renderTextbook(activeId = TEXTBOOK_SECTIONS[0].id) {
           <span>例</span>
           <strong>${active.example}</strong>
         </div>
+        ${renderInteractiveLesson(active)}
         <div class="textbook-practice">
           <span>対応する実習</span>
           <strong>${active.practice}</strong>
-          ${active.practiceMode ? `<button type="button" data-start-practice="${active.practiceMode}">この単元を練習する</button>` : ""}
+          <button type="button" data-start-practice="${textbookPracticeMode(active)}">この単元を練習する →</button>
         </div>
       </article>
     </div>
@@ -2498,69 +2534,7 @@ function renderTextbook(activeId = TEXTBOOK_SECTIONS[0].id) {
 }
 
 async function renderMyPageTop() {
-  const { quizzes, progress } = await loadLearningRecords();
-  const summaries = PLAY_MODES.map((mode) => summarizeMode(mode, quizzes, progress));
-  const attemptRecords = state.account
-    ? await requestToPromise(state.db.transaction("attemptsLog", "readonly").objectStore("attemptsLog").index("accountId").getAll(state.account.id))
-    : [];
-  const todayAttempts = attemptRecords.filter((record) => isToday(record.createdAt));
-  const todayCorrect = todayAttempts.filter((record) => record.ok).length;
-  const todayAccuracy = todayAttempts.length ? `${Math.round((todayCorrect / todayAttempts.length) * 100)}%` : "--";
-  const lastAttempt = [...attemptRecords].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
-  const total = summaries.reduce(
-    (sum, item) => ({
-      quizzes: sum.quizzes + item.total,
-      solved: sum.solved + item.solved,
-      attempts: sum.attempts + item.attempts,
-      correct: sum.correct + item.correct,
-    }),
-    { quizzes: 0, solved: 0, attempts: 0, correct: 0 },
-  );
-
-  els.mypagePanel.innerHTML = `
-    <div class="mypage-head">
-      <div>
-        <p class="label">ホーム</p>
-        <h2>今日の学習状況</h2>
-        <p><span>${escapeHtml(state.account?.name || DEFAULT_ACCOUNT_NAME)}</span><strong>全${total.quizzes}問中 ${total.solved}問を正解済み</strong></p>
-      </div>
-    </div>
-    <div class="home-overview">
-      <div>
-        <span>今日の挑戦</span>
-        <strong>${todayAttempts.length}</strong>
-      </div>
-      <div>
-        <span>今日の正解率</span>
-        <strong>${todayAccuracy}</strong>
-      </div>
-      <div>
-        <span>累計正解</span>
-        <strong>${total.correct}</strong>
-      </div>
-      <div>
-        <span>最近の成績</span>
-        <strong>${lastAttempt ? (lastAttempt.ok ? "正解" : "復習中") : "--"}</strong>
-      </div>
-    </div>
-    <div class="mypage-grid">
-      ${summaries
-        .map(
-          (item) => `
-            <button class="menu-score-card" type="button" data-history-mode="${item.mode}">
-              <strong>${escapeHtml(MODES[item.mode].title)}</strong>
-              <span>${escapeHtml(MODES[item.mode].label)}</span>
-              <div class="score-metrics">
-                <div><span>正解済み</span><b>${item.solved}/${item.total}</b></div>
-                <div><span>挑戦</span><b>${item.attempts}</b></div>
-                <div><span>精度</span><b>${item.accuracy}</b></div>
-              </div>
-            </button>
-          `,
-        )
-        .join("")}
-    </div>
-  `;
+  await renderDashboard();
 }
 
 async function renderMyPageDetail(mode) {
@@ -2675,42 +2649,31 @@ function renderStats() {
 
 // 手修正ポイント: お手本再生。進行/スケール/コードで鳴らし方を分岐
 function playTarget() {
+  stopAudio();
   ensureAudio();
   if (!state.target) return;
-
-  if (state.mode === "progression") {
+  if (experience.playRegion === "bar" && isHarmonyMode()) {
+    playMelody([state.target.bars[state.activeBar]], 0.9, state.activeBar);
+  } else if (state.mode === "progression") {
     flashKeys(playChordSequence(state.target.progression, 0.55, state.progressionPlayback));
-    return;
-  }
-
-  if (isHarmonyMode()) {
+  } else if (isHarmonyMode()) {
     playMelody(state.target.bars);
-    flashKeys(state.target.notes);
-    return;
-  }
-
-  if (state.mode === "interval") {
+  } else if (state.mode === "interval") {
     const sequence = [state.target.rootPitch, state.target.notes[0]];
     sequence.forEach((pitch, index) => playNote(pitchNote(pitch), pitchOctave(pitch), index * 0.45, 0.4));
-    flashKeys(sequence);
-    return;
-  }
-
-  if (state.mode === "transpose") {
+  } else if (state.mode === "transpose") {
     const rootPitch = `${state.target.targetKey}4`;
     const sequence = [rootPitch, state.target.notes[0]];
     sequence.forEach((pitch, index) => playNote(pitchNote(pitch), pitchOctave(pitch), index * 0.45, 0.4));
-    flashKeys(sequence);
-    return;
-  }
-
-  const notes = state.target.notes;
-  if (state.mode === "scale" || state.mode === "diatonic" || (state.mode === "lesson" && state.target.answerMode === "scale")) {
-    notes.forEach((pitch, index) => playNote(pitchNote(pitch), pitchOctave(pitch), index * 0.22, 0.2));
   } else {
-    chordPitchesFromTarget(state.target).forEach((pitch) => playNote(pitchNote(pitch), pitchOctave(pitch), 0, 0.75));
+    const notes = state.target.notes;
+    if (state.mode === "scale" || state.mode === "diatonic" || (state.mode === "lesson" && state.target.answerMode === "scale")) {
+      notes.forEach((pitch, index) => playNote(pitchNote(pitch), pitchOctave(pitch), index * 0.22, 0.2));
+    } else {
+      chordPitchesFromTarget(state.target).forEach((pitch) => playNote(pitchNote(pitch), pitchOctave(pitch), 0, 0.75));
+    }
   }
-  flashKeys(state.mode === "scale" || state.mode === "diatonic" || (state.mode === "lesson" && state.target.answerMode === "scale") ? notes : chordPitchesFromTarget(state.target));
+  finishPlayback(playTarget, "お手本を再生中");
 }
 
 function setKeyLight(enabled) {
@@ -2724,6 +2687,7 @@ function setKeyLight(enabled) {
 function canPlaySelectedAnswer() {
   if (state.mode === "practice") return state.selected.length > 0;
   if (!state.target) return false;
+  if (state.mode === "ear" && experience.settings.earLevel < 3) return Boolean(state.earChoice);
   if (state.mode === "function") {
     return Object.keys(state.target.assignments || {}).length > 0 || state.selected.length > 0;
   }
@@ -2732,8 +2696,18 @@ function canPlaySelectedAnswer() {
 
 // 手修正ポイント: 選択音の再生。自由練習は最後の通常分岐で同時発音される
 function playSelectedAnswer() {
+  stopAudio();
+  playSelectedAnswerNotes();
+  finishPlayback(playSelectedAnswer, "自分の回答を再生中");
+}
+
+function playSelectedAnswerNotes() {
   ensureAudio();
   if (!canPlaySelectedAnswer()) return;
+  if (state.mode === "ear" && experience.settings.earLevel < 3) {
+    scalePitches(state.target.root, 4, CHORDS[state.earChoice].intervals).forEach(pitch => playNote(pitchNote(pitch), pitchOctave(pitch), 0, .75));
+    return;
+  }
 
   if ((state.mode === "lesson" && state.target.answerMode === "scale") || state.mode === "scale") {
     state.selected.forEach((pitch, index) => playNote(pitchNote(pitch), pitchOctave(pitch), index * 0.22, 0.2));
@@ -2771,6 +2745,7 @@ function playSelectedAnswer() {
 }
 
 function playSuccess(target) {
+  stopAudio();
   if (!target) return;
   ensureAudio();
 
@@ -2799,8 +2774,9 @@ function chordPitchesFromTarget(target) {
   return chordPitchesFromNotes(target.root, target.notes, 4);
 }
 
-function playMelody(bars, barDuration = 0.9) {
+function playMelody(bars, barDuration = 0.9, firstBar = 0) {
   bars.forEach((bar, barIndex) => {
+    sound.mark(`[data-action="focus-harmony-bar"][data-bar="${firstBar + barIndex}"]`, barIndex * barDuration * tempoRatio(), barDuration * tempoRatio());
     bar.forEach((pitch, noteIndex) => {
       playNote(pitchNote(pitch), pitchOctave(pitch), barIndex * barDuration + noteIndex * (barDuration / bar.length), 0.32);
     });
@@ -2809,16 +2785,16 @@ function playMelody(bars, barDuration = 0.9) {
 
 function playHarmonization() {
   const barDuration = 0.9;
-  playMelody(state.target.bars, barDuration);
-  const played = [...state.target.notes];
-  Array.from({ length: state.target.bars.length }, (_, index) => harmonyChordById(state.selected[index])).forEach((chord, index) => {
+  const firstBar = experience.playRegion === 'bar' ? state.activeBar : 0;
+  const bars = experience.playRegion === 'bar' ? [state.target.bars[firstBar]] : state.target.bars;
+  playMelody(bars, barDuration, firstBar);
+  bars.forEach((_, index) => {
+    const chord = harmonyChordById(state.selected[firstBar + index]);
     if (!chord) return;
     chordTonePitches(chord, 3).forEach((pitch) => {
       playNote(pitchNote(pitch), pitchOctave(pitch), index * barDuration, 0.78);
-      played.push(pitch);
     });
   });
-  flashKeys(played);
 }
 
 function chordPitchesFromNotes(root, notes, rootOctave = 4) {
@@ -2889,36 +2865,16 @@ function chordTonePitches(chord, rootOctave) {
 
 // 手修正ポイント: Web Audio 初期化。ブラウザ制限があるためユーザー操作後に作る
 function ensureAudio() {
-  if (!state.audio) {
-    state.audio = new AudioContext();
-  }
+  state.audio = sound.ensure();
 }
 
 // 手修正ポイント: 単音再生の音色。oscillator.type や gain を触ると音色/音量が変わる
 function playNote(note, octave = 4, delay = 0, duration = 0.28) {
-  const ctx = state.audio;
-  const start = ctx.currentTime + delay;
-  const oscillator = ctx.createOscillator();
-  const gain = ctx.createGain();
-  oscillator.type = "triangle";
-  oscillator.frequency.value = frequencyFor(note, octave);
-  gain.gain.setValueAtTime(0.0001, start);
-  gain.gain.exponentialRampToValueAtTime(0.18, start + 0.02);
-  gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
-  oscillator.connect(gain).connect(ctx.destination);
-  oscillator.start(start);
-  oscillator.stop(start + duration + 0.03);
+  sound.note(note, Number(octave), delay * tempoRatio(), duration * tempoRatio(), state.keyLight);
 }
 
 function flashKeys(notes) {
-  if (!state.keyLight) return;
-  const pitches = notes.map((note) => (/\d$/.test(note) ? note : `${note}4`));
-  document.querySelectorAll(".key").forEach((key) => {
-    if (pitches.includes(`${key.dataset.note}${key.dataset.octave}`)) {
-      key.classList.add("active");
-      setTimeout(() => key.classList.remove("active"), 520);
-    }
-  });
+  // Each note now schedules its own visual cue on the shared audio clock.
 }
 
 function lessonTargetForStep() {
@@ -3372,9 +3328,3 @@ function escapeHtml(value) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
 }
-
-init().catch((error) => {
-  console.error(error);
-  els.prompt.textContent = "データベースの初期化に失敗しました";
-  els.modeCopy.textContent = "ブラウザのIndexedDBが使える状態か確認してください。";
-});

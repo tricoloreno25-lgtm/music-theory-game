@@ -4,8 +4,12 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Chord Quest</title>
-    <link rel="stylesheet" href="./styles.css?v=c31de92" />
-    <link rel="stylesheet" href="./rich-theme.css?v=c31de92" />
+    <meta name="theme-color" content="#101426" />
+    <meta name="description" content="毎日5分、耳と手で音楽理論を。音程・コード・耳トレから、自分だけのコード進行づくりまで。" />
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="./styles.css?v=studio-20260913" />
+    <link rel="stylesheet" href="./rich-theme.css?v=studio-20260913" />
+    <link rel="stylesheet" href="./experience.css?v=studio-20260913" />
   </head>
   <body>
     <!-- 手修正ポイント: アプリ全体の外枠。大きな余白や全体幅は styles.css の .app-shell / .stage を調整 -->
@@ -38,7 +42,7 @@
                 <button data-mode="ear">耳トレ</button>
               </div>
             </div>
-            <button class="tab" data-mode="practice">自由演奏</button>
+            <button class="tab" data-mode="practice">作曲室</button>
           </nav>
           <div class="topbar-tools">
             <div class="account-panel">
@@ -49,11 +53,24 @@
               </div>
             </div>
             <div class="scoreboard" aria-live="polite">
-              <span>Score <strong id="score">0</strong></span>
-              <span>Streak <strong id="streak">0</strong></span>
+              <span>スコア <strong id="score">0</strong></span>
+              <span>連続正解 <strong id="streak">0</strong></span>
             </div>
           </div>
         </header>
+        <div class="audio-dock">
+          <span class="audio-status" id="audio-status" role="status">音から、わかる。</span>
+          <button type="button" class="quiet-button" data-cq="stop" id="stop-audio" aria-label="すべての再生を停止">■ 停止</button>
+          <details class="sound-settings">
+            <summary>音の設定</summary>
+            <div class="sound-settings-body">
+              <label>音色<select id="sound-tone"><option value="piano">ソフトピアノ</option><option value="electric">エレクトリックピアノ</option><option value="triangle">シンプル</option></select></label>
+              <label>音量 <output id="volume-value">60%</output><input id="sound-volume" type="range" min="0" max="100" value="60" /></label>
+              <label>テンポ <output id="tempo-value">100 BPM</output><input id="sound-tempo" type="range" min="50" max="160" step="5" value="100" /></label>
+              <label class="check-label"><input id="sound-loop" type="checkbox" /> お手本・回答をリピート</label>
+            </div>
+          </details>
+        </div>
 
         <!-- 手修正ポイント: 左サイドとメイン領域の2カラム。列幅は styles.css の .workspace を調整 -->
         <section class="workspace">
@@ -78,7 +95,7 @@
               <p class="side-heading">今日の目標</p>
               <div><span class="check-dot" id="goal-attempts-dot"></span><span>問題を10問解く</span><strong id="goal-attempts-value">0 / 10</strong></div>
               <div><span class="check-dot" id="goal-accuracy-dot"></span><span>正解率70%以上</span><strong id="goal-accuracy-value">--</strong></div>
-              <div><span class="check-dot" id="goal-progressions-dot"></span><span>新しい進行を3つ学ぶ</span><strong id="goal-progressions-value">0 / 3</strong></div>
+              <div><span class="check-dot" id="goal-progressions-dot"></span><span id="goal-unit-label">新しい問題を3つ学ぶ</span><strong id="goal-progressions-value">0 / 3</strong></div>
             </div>
             <div class="lesson-card">
               <h2 id="mode-title">音程の地図</h2>
@@ -108,6 +125,8 @@
           </aside>
 
           <section class="game-panel">
+            <div id="session-strip" class="session-strip hidden"></div>
+            <div id="exercise-options" class="exercise-options"></div>
             <!-- 手修正ポイント: 問題/モードの見出し。自由練習では app.js の showPracticeMode が文言を入れる -->
             <div class="prompt-row">
               <div>
@@ -131,13 +150,14 @@
 
             <!-- 手修正ポイント: 選択中の音やフィードバック表示。自由練習では横スクロール固定 -->
             <div class="answer-strip" id="answer-strip" aria-live="polite"></div>
+            <div id="explanation-panel" class="explanation-panel hidden" aria-live="polite"></div>
 
             <!-- 手修正ポイント: ヒントUI。自由練習モードでは CSS / app.js で非表示 -->
             <div class="hint-tools">
               <button id="toggle-hint" class="secondary" aria-expanded="false" aria-controls="hint-panel">
                 ヒントを見る
               </button>
-              <span id="hint-cost">ヒント1つごとに正解点が25%減</span>
+              <span id="hint-cost">練習ではヒントを使っても減点なし</span>
             </div>
 
             <div class="hint-panel hidden" id="hint-panel" aria-live="polite"></div>
@@ -146,14 +166,18 @@
             <div class="concept-board hidden" id="concept-board" aria-live="polite"></div>
 
             <!-- 手修正ポイント: 鍵盤本体。キーは app.js の renderKeyboard で生成 -->
-            <div class="keyboard" id="keyboard" aria-label="ピアノ鍵盤"></div>
+            <div class="keyboard-wrap" id="keyboard-wrap">
+              <div class="keyboard-controls"><span>鍵盤で試す</span><div role="group" aria-label="鍵盤の音域"><button type="button" data-cq="octave" data-octave="4" aria-pressed="true">C4–C5</button><button type="button" data-cq="octave" data-octave="5" aria-pressed="false">C5–C6</button></div></div>
+              <div class="keyboard" id="keyboard" aria-label="ピアノ鍵盤"></div>
+            </div>
+            <section id="studio-panel" class="studio-panel hidden" aria-label="小さな作曲室"></section>
 
             <!-- 手修正ポイント: 下部操作ボタン。自由練習では判定/次へを非表示 -->
             <div class="controls">
-              <button id="check-answer">判定</button>
+              <button id="check-answer">答え合わせ</button>
               <button id="play-answer" class="secondary">自分の音を聞く</button>
               <button id="next-challenge" class="secondary">次へ</button>
-              <button id="clear-answer" class="secondary">消す</button>
+              <button id="clear-answer" class="secondary">選び直す</button>
             </div>
           </section>
 
@@ -164,7 +188,9 @@
         </section>
       </section>
     </main>
-
-    <script src="./app.js?v=c31de92"></script>
+    <div id="toast" class="toast hidden" role="status"></div>
+    <script src="./audio.js?v=studio-20260913"></script>
+    <script src="./app.js?v=studio-20260913"></script>
+    <script src="./experience.js?v=studio-20260913"></script>
   </body>
 </html>
