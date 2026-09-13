@@ -8,7 +8,7 @@ const LEARNING_UNITS = [
   { id: 'harmony', short: '和声', title: 'メロディーに和声を', modes: ['harmonyOne', 'harmonize'], section: 'one-bar-harmony', copy: '1小節から、4小節の伴奏へ。', starter: 'harmony-one-0' },
 ];
 
-const DEFAULT_SETTINGS = { tone: 'piano', volume: 60, tempo: 100, earLevel: 1, studyStyle: 'practice' };
+const DEFAULT_SETTINGS = { tone: 'piano', volume: 60, tempo: 100, earLevel: 1, studyStyle: 'practice', showMelodyNotes: false };
 const experience = {
   settings: { ...DEFAULT_SETTINGS }, data: {}, session: null, sessionComplete: false,
   octave: 4, loop: false, loopTimer: null, playRegion: 'all', activeSection: 'interval-basics',
@@ -32,6 +32,7 @@ function loadExperienceAccount() {
     volume: clampNumber(prefs.volume, 0, 100, 60), tempo: clampNumber(prefs.tempo, 50, 160, 100),
     earLevel: [1, 2, 3].includes(prefs.earLevel) ? prefs.earLevel : 1,
     studyStyle: prefs.studyStyle === 'challenge' ? 'challenge' : 'practice',
+    showMelodyNotes: prefs.showMelodyNotes === true,
   };
   experience.session = null;
   experience.sessionComplete = false;
@@ -153,7 +154,7 @@ async function handleExperienceAction(button) {
 
 function handleExperienceChange(event) {
   const element = event.target;
-  if (state.saving && ['study-style', 'ear-level'].includes(element.id)) { renderExperienceControls(); return; }
+  if (state.saving && ['study-style', 'ear-level', 'show-melody-notes'].includes(element.id)) { renderExperienceControls(); return; }
   if (element.id === 'sound-tone') experience.settings.tone = element.value;
   else if (element.id === 'sound-volume') experience.settings.volume = Number(element.value);
   else if (element.id === 'sound-tempo') experience.settings.tempo = Number(element.value);
@@ -165,6 +166,11 @@ function handleExperienceChange(event) {
     experience.data.session = null;
     state.followQuizOrder = false;
     saveExperience(); nextChallenge(); return;
+  } else if (element.id === 'show-melody-notes') {
+    experience.settings.showMelodyNotes = element.checked;
+    stopAudio(); saveExperience();
+    if (isHarmonyMode() && state.target) renderHarmonizeBoard();
+    return;
   } else if (element.id === 'play-region') { stopAudio(); experience.playRegion = element.value; return; }
   else if (element.id === 'studio-key') { stopAudio(); experience.data.draft.key = element.value; saveExperience(); renderStudio(); return; }
   else if (element.id === 'studio-name') { experience.data.draft.name = element.value.trim().slice(0, 60); saveExperience(); return; }
@@ -248,6 +254,7 @@ function renderExperienceControls() {
   options.innerHTML = playing ? `<label>取り組み方<select id="study-style" ${state.saving || state.hintCount || state.solved ? 'disabled' : ''}><option value="practice" ${experience.settings.studyStyle === 'practice' ? 'selected' : ''}>練習 · 減点なし</option><option value="challenge" ${experience.settings.studyStyle === 'challenge' ? 'selected' : ''}>チャレンジ · 得点に挑戦</option></select></label>
     ${state.mode === 'ear' ? `<label>耳トレのステップ<select id="ear-level" ${experience.session || state.saving ? 'disabled' : ''}><option value="1" ${experience.settings.earLevel === 1 ? 'selected' : ''}>1 · メジャー / マイナー</option><option value="2" ${experience.settings.earLevel === 2 ? 'selected' : ''}>2 · セブンスを含む5種類</option><option value="3" ${experience.settings.earLevel === 3 ? 'selected' : ''}>3 · 鍵盤で再現</option></select></label>` : ''}
     ${isHarmonyMode() ? '<label>再生範囲<select id="play-region"><option value="all">全体</option><option value="bar">選択中の1小節</option></select></label>' : ''}
+    ${isHarmonyMode() ? `<label class="check-label melody-note-option"><input id="show-melody-notes" type="checkbox" ${experience.settings.showMelodyNotes ? 'checked' : ''} ${state.saving ? 'disabled' : ''} />メロディーの音名を表示</label>` : ''}
     ${state.mode === 'ear' && experience.settings.earLevel < 3 ? `<div class="ear-choices" role="group" aria-label="聞こえたコードの種類">${earKinds().map(kind => `<button type="button" data-cq="ear-choice" data-value="${kind}" aria-pressed="${state.earChoice === kind}" ${state.solved || state.saving ? 'disabled' : ''}>${CHORDS[kind].name}</button>`).join('')}</div>` : ''}` : '';
   if (document.querySelector('#play-region')) document.querySelector('#play-region').value = experience.playRegion;
   if (state.mode === 'ear' && state.target && experience.settings.earLevel < 3) els.prompt.textContent = 'どんな響きが聞こえましたか？';

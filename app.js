@@ -1630,6 +1630,7 @@ function renderHarmonizeBoard() {
   const barCount = state.target.bars.length;
   const selectedChords = Array.from({ length: barCount }, (_, index) => chords.find((chord) => chord.id === state.selected[index]));
   const reveal = state.solved;
+  const showNotes = reveal || experience.settings.showMelodyNotes;
 
   els.conceptBoard.innerHTML = `
     <div class="harmonize-board">
@@ -1649,13 +1650,14 @@ function renderHarmonizeBoard() {
           return `
             <button type="button" class="melody-bar ${state.activeBar === index ? "active" : ""}" data-action="focus-harmony-bar" data-bar="${index}">
               <span>${index + 1}小節目</span>
-              <strong>${reveal ? bar.map(pitchNote).join(" － ") : "♪　♪　♪　♪"}</strong>
-              <small>${reveal ? "音名を開示" : "メロディーを聴いて推定"}</small>
+              <strong class="melody-pitches">${showNotes ? bar.map(pitch => `<span>${pitch.replace('#', '♯')}</span>`).join(' → ') : "♪　♪　♪　♪"}</strong>
+              <small>${showNotes ? "音名を見ながら聴く" : "メロディーを聴いて推定"}</small>
               <b>${chord ? `${chord.symbol} · ${roleName(chord.role)}` : "コードを選ぶ"}</b>
             </button>
           `;
         }).join("")}
       </div>
+      ${showNotes ? '<p class="melody-note-help">数字はオクターブを表します。B4 → C5 は半音上への動きです。</p>' : ''}
       <div class="harmony-picker">
         <div>
           <p class="mini-label">Step 2 · ${state.activeBar + 1}小節目</p>

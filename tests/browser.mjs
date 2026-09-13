@@ -86,7 +86,42 @@ try {
   };
 
   await waitFor('typeof experience !== "undefined" && state.account && document.querySelector(".daily-hero")');
-  if (process.argv[3] === 'visual') {
+  if (process.argv[3] === 'melody') {
+    await evaluate('openQuizFromHistory("harmony-one-0")');
+    assert.equal(await evaluate('document.querySelector("#show-melody-notes").checked'), false);
+    assert.match(await evaluate('document.querySelector(".melody-pitches").textContent'), /♪/);
+    await click('[data-action="choose-harmony-key"][data-key="C"]');
+    await click('[data-action="pick-harmony"][data-id="C-0"]');
+    const answer = await evaluate('({selected:state.selected, key:state.harmonyKey, score:state.score, hints:state.hintCount})');
+    await click('#show-melody-notes');
+    assert.equal(await evaluate('document.querySelector(".melody-pitches").textContent'), 'B4 → C5 → E5 → G5');
+    assert.ok(await evaluate('!document.querySelector(".harmony-flow").textContent.includes("正解は") && !state.solved'));
+    await click('#show-melody-notes');
+    assert.match(await evaluate('document.querySelector(".melody-pitches").textContent'), /♪/);
+    assert.deepEqual(await evaluate('({selected:state.selected, key:state.harmonyKey, score:state.score, hints:state.hintCount})'), answer);
+    await click('#show-melody-notes');
+    await snapshot('melody-guide-one-mobile', 390);
+    await evaluate('setMode("harmonize")');
+    assert.equal(await evaluate('document.querySelector("#show-melody-notes").checked'), true);
+    assert.deepEqual(await evaluate('Array.from(document.querySelectorAll(".melody-pitches")).map(el=>el.textContent)'), await evaluate('state.target.bars.map(bar=>bar.map(pitch=>pitch.replace("#","♯")).join(" → "))'));
+    await snapshot('melody-guide-four-mobile', 390);
+    await snapshot('melody-guide-four-desktop');
+    await call('Page.reload', { ignoreCache: true });
+    await waitFor('state.account && document.querySelector(".daily-hero")');
+    await evaluate('openQuizFromHistory("harmony-one-0")');
+    assert.equal(await evaluate('document.querySelector("#show-melody-notes").checked'), true);
+    const accountA = await evaluate('state.account.id');
+    await evaluate(`(async () => {
+      const account = createAccountRecord('音名表示の確認用');
+      await storeRequest('accounts', 'readwrite', store => store.put(account));
+      state.accounts.push(account); renderAccountSelect(); await switchAccount(account.id);
+    })()`);
+    assert.equal(await evaluate('document.querySelector("#show-melody-notes").checked'), false);
+    await evaluate(`switchAccount(${JSON.stringify(accountA)})`);
+    assert.equal(await evaluate('document.querySelector("#show-melody-notes").checked'), true);
+    assert.deepEqual(page.errors, []);
+    console.log('PASS melody guide: all notes, no solution disclosure, answer preservation, both harmony modes, account settings and reload');
+  } else if (process.argv[3] === 'visual') {
     for (const mode of ['function', 'progression']) {
       await evaluate(`setMode(${JSON.stringify(mode)})`);
       await evaluate(`if (state.mode === 'function') state.target.assignments = Object.fromEntries(state.target.chords.map(chord => [chord.id, chord.role])); else state.selected = state.target.progression.map(chord => chord.id); renderConceptBoard(); renderAnswer();`);

@@ -9,9 +9,17 @@
 
 ユーザーは2026-09-13に最終確認後のcommit / push / 公開を承認しました。本変更の基点は `36a9626 Add harmony training and rich responsive UI` です。コミットの詳細は `git log`、公開結果はGitHub Actionsの `pages build and deployment` を参照してください。
 
-公開先：<https://tricoloreno25-lgtm.github.io/music-theory-game/>。`origin/main` へのpushで既存のGitHub Pagesが自動更新されます。今回の静的ファイルのキャッシュ識別子は `studio-20260913` です。
+公開先：<https://tricoloreno25-lgtm.github.io/music-theory-game/>。`origin/main` へのpushで既存のGitHub Pagesが自動更新されます。今回の静的ファイルのキャッシュ識別子は `melody-guide-20260913` です。
 
 日本語で応答してください。同じ確認をむやみに繰り返さず、追加の変更や不具合に関係する確認を優先してください。
+
+## 追加対応：和声の音名表示
+
+- 1小節・4小節の和声に「メロディーの音名を表示」チェックを追加。初期値はOFFです。
+- ONにすると全小節の音を `B4 → C5 → E5 → G5` のようにオクターブ付きで表示。シャープは `♯` で表示します。
+- 音名の表示だけでは正解のキー・コードを開示しません。切り替えても回答を保持し、ヒント数・得点は変わりません。
+- `experience.settings.showMelodyNotes` にユーザー別で保存し、次問・再読み込みでも維持します。既存の問題データ・メロディーは変更していません。
+- `node tests/browser.mjs /private/tmp/chord-quest-melody-review melody` で表示切替、回答保持、正解非開示、1小節／4小節、再読み込み、ユーザー切替を確認済み。390px／1440pxで撮影し、スマホ画像を目視確認しました。
 
 ## 実装した範囲
 
