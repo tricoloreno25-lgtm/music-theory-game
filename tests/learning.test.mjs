@@ -8,14 +8,15 @@ const context = vm.createContext({
   console, Date, Math, Set, Map, structuredClone,
 });
 vm.runInContext(readFileSync(new URL('../app.js', import.meta.url), 'utf8'), context);
+vm.runInContext(readFileSync(new URL('../curriculum.js', import.meta.url), 'utf8'), context);
 vm.runInContext(readFileSync(new URL('../experience.js', import.meta.url), 'utf8').split('\ninit().catch')[0], context);
 const evaluate = source => vm.runInContext(source, context);
 const value = source => JSON.parse(JSON.stringify(evaluate(source)));
 
-test('all existing quiz IDs remain unique, and all 424 quizzes can build a target', () => {
+test('all original and added quiz IDs remain unique and build a target', () => {
   const ids = value('buildQuizBank().map(quiz => { const target = targetFromQuiz(quiz); if (!target.notes?.length) throw new Error(quiz.id); return quiz.id; })');
-  assert.equal(ids.length, 424);
-  assert.equal(new Set(ids).size, 424);
+  assert.equal(ids.filter(id => !id.startsWith("listen-")).length, 424);
+  assert.equal(new Set(ids).size, ids.length);
 });
 
 test('chord feedback identifies a lowered third and spells the minor chord correctly', () => {
@@ -73,11 +74,11 @@ test('practice hints are free while challenge hints keep the scoring rule', () =
   assert.equal(evaluate(`experience.settings.studyStyle = 'challenge'; hintScoreMultiplier()`), .25);
 });
 
-test('every textbook chapter provides a demo, a question, and a working exercise route', () => {
+test('every textbook chapter provides a demo and a working question or staged exercise route', () => {
   const chapters = value('TEXTBOOK_SECTIONS.map(section => ({ id: section.id, demo: LESSON_DEMOS[section.id], mode: textbookPracticeMode(section) }))');
   for (const chapter of chapters) {
     assert.ok(chapter.demo, chapter.id);
-    assert.ok(chapter.demo.options.includes(chapter.demo.answer), chapter.id);
+    assert.ok(chapter.demo.stage ? evaluate(`Boolean(curriculumStage('${chapter.demo.stage}'))`) : chapter.demo.options.includes(chapter.demo.answer), chapter.id);
     assert.ok(value('PLAY_MODES').includes(chapter.mode), chapter.id);
   }
 });
@@ -93,4 +94,46 @@ test('saved compositions validate transposable degrees and tempo bounds', () => 
   assert.equal(evaluate('validComposition(defaultComposition())'), true);
   assert.equal(evaluate('validComposition({...defaultComposition(), slots:[0,1,2,9]})'), false);
   assert.equal(evaluate('validComposition({...defaultComposition(), tempo:0})'), false);
+});
+
+test('every listening question grades both choices and schedules the intended sound', () => {
+  const results = value(`buildCurriculumQuizzes().filter(q => curriculumStage(q.payload.stage).family !== 'harmony').map(q => {
+    state.mode=q.mode; state.target=targetFromQuiz(q); state.selected=[];
+    const incomplete=gradeAnswer().incomplete;
+    state.selected=[state.target.options.find(o=>o.id!==state.target.answer).id];
+    const wrong=gradeAnswer().ok;
+    state.selected=[state.target.answer];
+    const right=gradeAnswer().ok;
+    const events=listeningEvents();
+    return {incomplete,wrong,right,valid:events.every(e=>/^[A-G]#?\\d$/.test(e.pitch)&&e.duration>0&&e.at>=0)};
+  })`);
+  for (const r of results) assert.deepEqual(r,{incomplete:true,wrong:false,right:true,valid:true});
+});
+
+test('harmony beginners have valid choices, chord tones, provided keys and exactly one gap', () => {
+  assert.equal(evaluate(`buildCurriculumQuizzes().filter(q=>curriculumStage(q.payload.stage).family==='harmony').every(q=>{
+    state.mode=q.mode; state.target=targetFromQuiz(q); state.selected=[]; initializeCurriculumAnswer();
+    const t=state.target;
+    if(state.harmonyKey!==t.key || !gradeAnswer().incomplete) return false;
+    if(t.gapIndex!=null && state.selected.filter(Boolean).length!==3) return false;
+    const expected=t.gapIndex!=null?[t.expected[t.gapIndex]]:t.expected;
+    if(!expected.every(c=>t.candidateDegrees.includes(c.degree))) return false;
+    if(!curriculumStage(t.stage).color && !t.bars.every((bar,i)=>bar.every(p=>chordToneNames(t.expected[i]).includes(pitchNote(p))))) return false;
+    state.selected=t.expected.map(c=>c.id);
+    return gradeAnswer().ok;
+  })`),true);
+});
+
+test('next-question stage filtering separates theory, listening, and legacy harmony', () => {
+  assert.deepEqual(value(`experience.settings.curriculum={transpose:'tonic-ear',harmony:'gap-two'};
+    [...new Set(buildQuizBank().filter(q=>q.mode==='transpose' && quizAvailableInCurriculum(q)).map(quizStageId))]`),['tonic-ear']);
+  assert.deepEqual(value(`[...new Set(buildQuizBank().filter(q=>isHarmonyMode(q.mode) && quizAvailableInCurriculum(q)).map(quizStageId))]`),['gap-two']);
+  assert.equal(evaluate(`quizAvailableInCurriculum(buildQuizBank().find(q=>q.id==='harmony-one-0'))`),false);
+});
+
+test('stage mastery needs three distinct successes under the stage conditions', () => {
+  assert.equal(evaluate(`const bank=buildQuizBank(), stage=curriculumStage('one-ear');
+    const completed=new Map([0,1,2].map(i=>['listen-one-ear-'+i,{solved:true,unassistedSolved:false}]));
+    curriculumMastered(stage,bank,completed)`),false);
+  assert.equal(evaluate(`completed.forEach(r=>r.unassistedSolved=true); curriculumMastered(stage,bank,completed)`),true);
 });

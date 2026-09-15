@@ -86,6 +86,165 @@ try {
   };
 
   await waitFor('typeof experience !== "undefined" && state.account && document.querySelector(".daily-hero")');
+  if (process.argv[3] === 'keyboard') {
+    await call('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
+    await call('Emulation.setTouchEmulationEnabled',{enabled:true});
+    await evaluate('openQuizFromHistory("chord-C-major")');
+    await waitFor('document.querySelector("#keyboard").scrollWidth > document.querySelector("#keyboard-viewport").clientWidth');
+    const sizes = await evaluate(`(()=>{const viewport=document.querySelector('#keyboard-viewport');return {key:document.querySelector('.key.white').getBoundingClientRect().width,expected:(viewport.clientWidth-2)/8*1.15,height:document.querySelector('#keyboard').getBoundingClientRect().height,black:document.querySelector('.key.black').getBoundingClientRect().width};})()`);
+    assert.ok(Math.abs(sizes.key-sizes.expected)<.2);
+    assert.ok(Math.abs(sizes.black-sizes.expected*.608)<.2);
+    assert.equal(sizes.height,156);
+    await click('#keyboard [data-note="C"][data-octave="4"]');
+    await click('#keyboard [data-note="E"][data-octave="4"]');
+    const before = await evaluate('state.selected');
+    await evaluate('document.querySelector("#keyboard-viewport").scrollIntoView({block:"center"})');
+    const point=await evaluate('(()=>{const r=document.querySelector("#keyboard-viewport").getBoundingClientRect();return {x:r.right-35,y:r.bottom-35};})()');
+    await call('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[point]});
+    for(let i=1;i<=6;i++) {
+      await call('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:point.x-i*30,y:point.y}]});
+      await new Promise(r=>setTimeout(r,30));
+    }
+    await call('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+    await waitFor('document.querySelector("#keyboard-viewport").scrollLeft > 60');
+    assert.deepEqual(await evaluate('state.selected'),before,'swipe must not play/select a key');
+    await change('#keyboard-scroll',1000);
+    assert.deepEqual(await evaluate('state.selected'),before);
+    await click('#keyboard [data-note="G"][data-octave="5"]');
+    await click('#check-answer');
+    await waitFor('state.solved && !state.saving');
+    await snapshot('keyboard-mobile',390);
+    await evaluate('setMode("practice")');
+    await change('#keyboard-scroll',1000);
+    await click('#keyboard [data-note="C"][data-octave="6"]');
+    assert.deepEqual(await evaluate('state.selected'),['C6']);
+    await click('[data-cq="keyboard-move"][data-value="-1"]');
+    await waitFor('Number(document.querySelector("#keyboard-scroll").value) < 900');
+    await snapshot('keyboard-studio-mobile',390);
+    await call('Emulation.setDeviceMetricsOverride',{width:1440,height:1000,deviceScaleFactor:1,mobile:false});
+    await waitFor('document.querySelector("#keyboard-viewport").scrollWidth <= document.querySelector("#keyboard-viewport").clientWidth + 1');
+    assert.deepEqual(await evaluate('state.selected'),['C6']);
+    await snapshot('keyboard-desktop',1440);
+    assert.equal(page.errors.length,0,JSON.stringify(page.errors));
+    console.log('PASS pattern 3 width, native touch scrolling without selection, slider, range arrows, C6, preserved answers, grading and desktop layout');
+    await browser.call('Target.disposeBrowserContext',{browserContextId});page.close();browser.close();process.exit(0);
+  }
+  if (process.argv[3] === 'curriculum') {
+    const stages = await evaluate('CURRICULUM_STAGES.filter(s=>!s.legacy).map(s=>s.id)');
+    for (const stage of stages) {
+      await evaluate(`openQuizFromHistory('listen-${stage}-0')`);
+      assert.equal(await evaluate('document.querySelector("#curriculum-stage").value'),stage);
+      await click('#play-target');
+      assert.equal(await evaluate('sound.endTime > sound.context.currentTime'),true);
+      await evaluate('stopAudio()');
+      const listening = await evaluate('state.target.type === "listening"');
+      if (listening) {
+        await click('[data-cq="listen-reference"]');
+        await evaluate('stopAudio()');
+        const wrong = await evaluate('state.target.options.find(o=>o.id!==state.target.answer).id');
+        await click(`[data-cq="listen-choice"][data-value="${wrong}"]`);
+        await click('#check-answer');
+        await waitFor('!state.saving && document.querySelector("#explanation-panel").innerText.length > 0');
+        assert.equal(await evaluate('state.solved'),false);
+        const right = await evaluate('state.target.answer');
+        await click(`[data-cq="listen-choice"][data-value="${right}"]`);
+      } else {
+        assert.equal(await evaluate('document.querySelectorAll("[data-action=choose-harmony-key]").length'),0);
+        assert.equal(await evaluate('state.harmonyKey === state.target.key'),true);
+        const gap = await evaluate('state.target.gapIndex');
+        if (gap !== null) {
+          assert.equal(await evaluate('state.selected.filter(Boolean).length'),3);
+          await click(`[data-action="focus-harmony-bar"][data-bar="${(gap+1)%4}"]`);
+          assert.equal(await evaluate('[...document.querySelectorAll("[data-action=pick-harmony]")].every(b=>b.disabled)'),true);
+          await click(`[data-action="focus-harmony-bar"][data-bar="${gap}"]`);
+        }
+        const ids = await evaluate('state.target.expected.map(c=>c.id)');
+        for (let i=0;i<ids.length;i++) {
+          if (gap !== null && gap !== i) continue;
+          await click(`[data-action="focus-harmony-bar"][data-bar="${i}"]`);
+          await click(`[data-action="pick-harmony"][data-id="${ids[i]}"]`);
+        }
+      }
+      await click('#check-answer');
+      await waitFor('state.solved && !state.saving');
+      assert.equal(await evaluate('getProgressForQuiz(state.target.id).then(p=>p.stage)'),stage);
+      if (stage === 'role-three' || stage === 'gap-two') {
+        await snapshot(stage+'-desktop');
+        await snapshot(stage+'-mobile',390);
+      }
+      await click('#next-challenge');
+      await waitFor(`state.target.stage === '${stage}' && !state.solved`);
+    }
+    await evaluate('openQuizFromHistory("listen-one-ear-0")');
+    await change('#show-melody-notes',true);
+    await change('#show-melody-notes',false);
+    await evaluate('state.selected=state.target.expected.map(c=>c.id); checkAnswer()');
+    assert.equal(await evaluate('getProgressForQuiz(state.target.id).then(p=>p.support.notesShown)'),false);
+    // Another never-solved question must not earn unassisted mastery after extra help.
+    await evaluate('openQuizFromHistory("listen-one-ear-1")');
+    await change('#show-melody-notes',true);
+    await evaluate('state.selected=state.target.expected.map(c=>c.id); checkAnswer()');
+    assert.equal(await evaluate('getProgressForQuiz(state.target.id).then(p=>p.unassistedSolved)'),false);
+    await evaluate('openQuizFromHistory("listen-gap-two-1")');
+    await click('#clear-answer');
+    assert.equal(await evaluate('state.selected.filter(Boolean).length'),3);
+    assert.equal(await evaluate(`(()=>{const original=sound.note,events=[];sound.note=(...args)=>events.push(args);playTarget();sound.note=original;stopAudio();return events.length;})()`),25);
+    await change('#curriculum-stage','four-keys');
+    await waitFor('state.target.stage === "four-keys"');
+    await change('#curriculum-stage','detect-one');
+    await waitFor('state.target.id.startsWith("harmony-one-")');
+    await evaluate('setMode("mypage")');
+    await snapshot('curriculum-home-mobile',390);
+    await evaluate('renderMyPageDetail("harmonyOne")');
+    assert.equal(await evaluate('Boolean(document.querySelector("[data-quiz-id=harmonize-0]"))'),true);
+    for (const chapter of ['one-bar-harmony','melody-harmony']) {
+      await evaluate(`setMode('textbook').then(()=>renderTextbook('${chapter}'))`);
+      assert.equal(await evaluate('document.querySelectorAll("[data-cq=mini-answer]").length'),0);
+      await click('[data-cq="demo"]');
+      assert.equal(await evaluate('sound.endTime > sound.context.currentTime'),true);
+      await click('[data-cq="curriculum-open"]');
+      await waitFor('state.target.keyProvided');
+    }
+    // Daily learning chooses the next listening stage after the foundations.
+    await evaluate(`(async()=>{
+      const ids=['interval-C-3','interval-C-4','interval-C-7','chord-C-major','chord-C-minor','chord-G-major','scale-C-major','scale-G-major','scale-D-major','ear-C-major','ear-C-minor'];
+      for(const id of ids){const q=buildQuizBank().find(q=>q.id===id);await storeRequest('progress','readwrite',s=>s.put({id:progressKey(state.account.id,id),accountId:state.account.id,quizId:id,mode:q.mode,solved:true,attempts:1,correct:1}));}
+      await startSession('daily');
+    })()`);
+    assert.equal(await evaluate('state.target.stage'),'tonic-guide');
+    const sessionQuiz = await evaluate('state.target.id');
+    const selected = await evaluate('state.target.answer');
+    await click(`[data-cq="listen-choice"][data-value="${selected}"]`);
+    await click('#check-answer');
+    await waitFor('state.solved && !state.saving');
+    await call('Page.reload',{ignoreCache:true});
+    await waitFor('state.account && document.querySelector(".daily-hero")');
+    await click('[data-cq="resume"]');
+    await waitFor('state.solved && state.target.type === "listening"');
+    assert.equal(await evaluate('state.target.id'),sessionQuiz);
+    assert.deepEqual(await evaluate('state.selected'),[selected]);
+    await evaluate('setMode("mypage")');
+    await evaluate('startSession("review")');
+    assert.equal(await evaluate('experience.session.ids.length'),3);
+    assert.equal(await evaluate('new Set(experience.session.ids).size'),3);
+    await evaluate('setMode("mypage")');
+    const owner = await evaluate('state.account.id');
+    await evaluate(`(async()=>{const a=createAccountRecord('カリキュラム別ユーザー');await storeRequest('accounts','readwrite',s=>s.put(a));await loadAccounts();renderAccountSelect();})()`);
+    const other = await evaluate('state.accounts.find(a=>a.id!==state.account.id).id');
+    await change('#account-select',other);
+    await waitFor(`state.account.id === ${JSON.stringify(other)} && document.querySelector(".daily-hero")`);
+    assert.deepEqual(await evaluate('experience.settings.curriculum'),{});
+    assert.equal(await evaluate(`getProgressForQuiz(${JSON.stringify(sessionQuiz)}).then(p=>Boolean(p))`),false);
+    await change('#account-select',owner);
+    await waitFor(`state.account.id === ${JSON.stringify(owner)} && document.querySelector(".daily-hero")`);
+    assert.equal(await evaluate('experience.settings.curriculum.transpose'),'tonic-guide');
+    assert.equal(page.errors.length,0,JSON.stringify(page.errors));
+    console.log('PASS all 17 stages, audio, wrong/correct grading, fixed bars, stage filtering, support tracking, merged history and layouts');
+    process.exitCode=0;
+    await browser.call('Target.disposeBrowserContext',{browserContextId});
+    page.close();browser.close();
+    process.exit(0);
+  }
   if (process.argv[3] === 'melody') {
     await evaluate('openQuizFromHistory("harmony-one-0")');
     assert.equal(await evaluate('document.querySelector("#show-melody-notes").checked'), false);
@@ -284,10 +443,11 @@ try {
 
   await call('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
   for (const mode of ['harmonyOne', 'harmonize', 'function', 'progression', 'diatonic']) {
-    await evaluate(`setMode(${JSON.stringify(mode)})`);
+    if (mode === 'harmonyOne' || mode === 'harmonize') await evaluate(`openQuizFromHistory(${JSON.stringify(mode === 'harmonyOne' ? 'harmony-one-0' : 'harmonize-0')})`);
+    else await evaluate(`setMode(${JSON.stringify(mode)})`);
     if (mode === 'harmonyOne' || mode === 'harmonize') {
       const key = await evaluate('state.target.key');
-      await click(`[data-action="choose-harmony-key"][data-key="${key}"]`);
+      if (await evaluate("!state.target.keyProvided")) await click(`[data-action="choose-harmony-key"][data-key="${key}"]`);
       const ids = await evaluate('state.target.expected.map(chord=>chord.id)');
       for (const id of ids) await click(`[data-action="pick-harmony"][data-id="${id}"]`);
     } else if (mode === 'function') {
@@ -329,7 +489,7 @@ try {
   const scale = await evaluate('state.target.notes');
   for (const pitch of scale) {
     const octave = Number(pitch.slice(-1));
-    await click(`[data-cq="octave"][data-octave="${octave}"]`);
+
     await click(`#keyboard [data-note="${pitch.slice(0,-1)}"][data-octave="${octave}"]`);
   }
   assert.deepEqual(await evaluate('state.selected'), scale);

@@ -5,13 +5,13 @@ const LEARNING_UNITS = [
   { id: 'scale', short: 'スケール', title: '音階とキーをつなぐ', modes: ['scale', 'transpose', 'lesson'], section: 'interval', copy: '音の並びを、別のキーでも。', starter: 'scale-C-major' },
   { id: 'function', short: '機能', title: 'コードの役割を知る', modes: ['diatonic', 'function'], section: 'diatonic', copy: '安定、展開、緊張を聴く。', starter: 'diatonic-C' },
   { id: 'progression', short: '進行', title: '音楽の流れをつくる', modes: ['progression'], section: 'progression', copy: '定番の進行を自分のものに。', starter: 'progression-C-0' },
-  { id: 'harmony', short: '和声', title: 'メロディーに和声を', modes: ['harmonyOne', 'harmonize'], section: 'one-bar-harmony', copy: '1小節から、4小節の伴奏へ。', starter: 'harmony-one-0' },
+  { id: 'harmony', short: '和声', title: 'メロディーに和声を', modes: ['harmonyOne', 'harmonize'], section: 'one-bar-harmony', copy: '1小節から、4小節の伴奏へ。', starter: 'listen-one-two-0' },
 ];
 
 const DEFAULT_SETTINGS = { tone: 'piano', volume: 60, tempo: 100, earLevel: 1, studyStyle: 'practice', showMelodyNotes: false };
 const experience = {
   settings: { ...DEFAULT_SETTINGS }, data: {}, session: null, sessionComplete: false,
-  octave: 4, loop: false, loopTimer: null, playRegion: 'all', activeSection: 'interval-basics',
+  loop: false, loopTimer: null, playRegion: 'all', activeSection: 'interval-basics',
   demoAnswer: null, toastTimer: null, dragSlot: null,
 };
 
@@ -33,12 +33,16 @@ function loadExperienceAccount() {
     earLevel: [1, 2, 3].includes(prefs.earLevel) ? prefs.earLevel : 1,
     studyStyle: prefs.studyStyle === 'challenge' ? 'challenge' : 'practice',
     showMelodyNotes: prefs.showMelodyNotes === true,
+    curriculum: Object.fromEntries(['transpose','function','progression','harmony'].flatMap(group => {
+      const id = prefs.curriculum?.[group];
+      return (id === 'theory' && group !== 'harmony') || (curriculumStage(id) && curriculumGroup(curriculumStage(id).mode) === group) ? [[group,id]] : [];
+    })),
   };
   experience.session = null;
   experience.sessionComplete = false;
   experience.loop = false;
   experience.playRegion = 'all';
-  experience.octave = 4;
+  document.querySelector('#keyboard-viewport').scrollLeft = 0;
   state.followQuizOrder = false;
   document.querySelector('#sound-loop').checked = false;
   experience.data.favorites = Array.isArray(saved.favorites) ? saved.favorites.filter(validComposition).slice(0, 50) : [];
@@ -85,6 +89,12 @@ function initExperience() {
   document.addEventListener('visibilitychange', () => { if (document.hidden) stopAudio(); });
   window.addEventListener('pagehide', stopAudio);
   window.matchMedia('(max-width: 820px)').addEventListener('change', updateKeyboardRange);
+  const keyboardViewport = document.querySelector('#keyboard-viewport');
+  new ResizeObserver(updateKeyboardRange).observe(keyboardViewport);
+  keyboardViewport.addEventListener('scroll', syncKeyboardScroll, {passive: true});
+  document.querySelector('#keyboard-scroll').addEventListener('input', event => {
+    keyboardViewport.scrollLeft = (keyboardViewport.scrollWidth - keyboardViewport.clientWidth) * Number(event.target.value) / 1000;
+  });
   document.querySelector('#studio-panel').addEventListener('dragstart', event => {
     const slot = event.target.closest('[data-studio-slot]');
     if (!slot) return;
@@ -107,7 +117,23 @@ function initExperience() {
 
 async function handleExperienceAction(button) {
   const { cq, id, mode, value } = button.dataset;
-  if (state.saving && !['stop', 'octave'].includes(cq)) return;
+  if (state.saving && !['stop', 'keyboard-move'].includes(cq)) return;
+  if (cq === 'curriculum-open') {
+    const stage = curriculumStage(value);
+    experience.session = null;
+    experience.settings.curriculum ||= {};
+    experience.settings.curriculum[curriculumGroup(stage.mode)] = stage.id;
+    saveExperience();
+    return setMode(stage.mode);
+  }
+  if (cq === 'listen-reference') return playListening('reference');
+  if (cq === 'listen-question') return playListening();
+  if (cq === 'listen-option') return playListening('option',value);
+  if (cq === 'listen-resolution') return playListening('resolution');
+  if (cq === 'listen-choice') {
+    if (state.solved) return;
+    state.selected = [value]; resetExplanation(); renderAnswer(); renderConceptBoard(); updateControls(); return;
+  }
   if (cq === 'stop') return stopAudio();
   if (cq === 'home') return setMode('mypage');
   if (cq === 'mode') return setMode(mode);
@@ -115,7 +141,7 @@ async function handleExperienceAction(button) {
   if (cq === 'resume') return resumeLearning();
   if (cq === 'unit') { experience.session = null; return openQuizFromHistory(LEARNING_UNITS.find(unit => unit.id === id).starter); }
   if (cq === 'read') { await setMode('textbook'); renderTextbook(id); return; }
-  if (cq === 'octave') { experience.octave = Number(button.dataset.octave); updateKeyboardRange(); return; }
+  if (cq === 'keyboard-move') { document.querySelector('#keyboard-viewport').scrollBy({left: Number(value) * keyboardWhiteWidth() * 4, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth'}); return; }
   if (cq === 'ear-choice') {
     if (state.solved) return;
     state.earChoice = value;
@@ -154,6 +180,7 @@ async function handleExperienceAction(button) {
 
 function handleExperienceChange(event) {
   const element = event.target;
+  if (element.id === 'curriculum-stage') { selectCurriculumStage(element.value).catch(console.error); return; }
   if (state.saving && ['study-style', 'ear-level', 'show-melody-notes'].includes(element.id)) { renderExperienceControls(); return; }
   if (element.id === 'sound-tone') experience.settings.tone = element.value;
   else if (element.id === 'sound-volume') experience.settings.volume = Number(element.value);
@@ -167,7 +194,10 @@ function handleExperienceChange(event) {
     state.followQuizOrder = false;
     saveExperience(); nextChallenge(); return;
   } else if (element.id === 'show-melody-notes') {
-    experience.settings.showMelodyNotes = element.checked;
+    if (state.target?.stage) {
+      state.curriculumNotes = element.checked;
+      if (element.checked && !state.target.guide) state.curriculumExtraHelp = true;
+    } else experience.settings.showMelodyNotes = element.checked;
     stopAudio(); saveExperience();
     if (isHarmonyMode() && state.target) renderHarmonizeBoard();
     return;
@@ -221,19 +251,34 @@ function toast(message) {
   experience.toastTimer = setTimeout(() => element.classList.add('hidden'), 4200);
 }
 
+function keyboardWhiteWidth() {
+  return Math.max(0, (document.querySelector('#keyboard-viewport').clientWidth - 2) / 8 * 1.15);
+}
+
 function updateKeyboardRange() {
   const mobile = window.matchMedia('(max-width: 820px)').matches;
-  const octave = experience.octave;
-  document.querySelectorAll('#keyboard .key').forEach(key => {
-    const pitchOct = Number(key.dataset.octave);
-    const inRange = pitchOct === octave || (pitchOct === octave + 1 && key.dataset.note === 'C');
-    key.classList.toggle('outside-range', mobile && !inRange);
-    if (key.classList.contains('black')) {
-      const slot = Number(key.dataset.slot);
-      key.style.left = mobile ? `${((slot - (octave === 5 ? 7 : 0)) / 8) * 100}%` : `${(slot / 15) * 100}%`;
-    }
+  const keyboard = document.querySelector('#keyboard');
+  const width = keyboardWhiteWidth();
+  if (mobile && width > 0) keyboard.style.setProperty('--white-key-width', `${width}px`);
+  document.querySelectorAll('#keyboard .key.black').forEach(key => {
+    key.style.left = `${Number(key.dataset.slot) / 15 * 100}%`;
   });
-  document.querySelectorAll('[data-cq="octave"]').forEach(button => button.setAttribute('aria-pressed', String(Number(button.dataset.octave) === octave)));
+  syncKeyboardScroll();
+}
+
+function syncKeyboardScroll() {
+  const viewport = document.querySelector('#keyboard-viewport');
+  const slider = document.querySelector('#keyboard-scroll');
+  const max = viewport.scrollWidth - viewport.clientWidth;
+  slider.value = max > 0 ? viewport.scrollLeft / max * 1000 : 0;
+  const width = keyboardWhiteWidth();
+  if (window.matchMedia('(max-width: 820px)').matches && width > 0) {
+    const names = ['C','D','E','F','G','A','B'];
+    const label = i => `${names[i % 7]}${4 + Math.floor(i / 7)}`;
+    const first = Math.min(14, Math.floor(viewport.scrollLeft / width));
+    const last = Math.min(14, Math.floor((viewport.scrollLeft + viewport.clientWidth - 2) / width));
+    document.querySelector('#keyboard-range-label').textContent = `${label(first)}–${label(last)}`;
+  } else document.querySelector('#keyboard-range-label').textContent = 'C4–C6';
 }
 
 function earKinds() {
@@ -253,9 +298,11 @@ function renderExperienceControls() {
   options.classList.toggle('hidden', !playing);
   options.innerHTML = playing ? `<label>取り組み方<select id="study-style" ${state.saving || state.hintCount || state.solved ? 'disabled' : ''}><option value="practice" ${experience.settings.studyStyle === 'practice' ? 'selected' : ''}>練習 · 減点なし</option><option value="challenge" ${experience.settings.studyStyle === 'challenge' ? 'selected' : ''}>チャレンジ · 得点に挑戦</option></select></label>
     ${state.mode === 'ear' ? `<label>耳トレのステップ<select id="ear-level" ${experience.session || state.saving ? 'disabled' : ''}><option value="1" ${experience.settings.earLevel === 1 ? 'selected' : ''}>1 · メジャー / マイナー</option><option value="2" ${experience.settings.earLevel === 2 ? 'selected' : ''}>2 · セブンスを含む5種類</option><option value="3" ${experience.settings.earLevel === 3 ? 'selected' : ''}>3 · 鍵盤で再現</option></select></label>` : ''}
+    ${renderCurriculumSelector()}
     ${isHarmonyMode() ? '<label>再生範囲<select id="play-region"><option value="all">全体</option><option value="bar">選択中の1小節</option></select></label>' : ''}
-    ${isHarmonyMode() ? `<label class="check-label melody-note-option"><input id="show-melody-notes" type="checkbox" ${experience.settings.showMelodyNotes ? 'checked' : ''} ${state.saving ? 'disabled' : ''} />メロディーの音名を表示</label>` : ''}
+    ${isHarmonyMode() ? `<label class="check-label melody-note-option"><input id="show-melody-notes" type="checkbox" ${curriculumNotesVisible() ? 'checked' : ''} ${state.saving ? 'disabled' : ''} />メロディーの音名を表示</label>` : ''}
     ${state.mode === 'ear' && experience.settings.earLevel < 3 ? `<div class="ear-choices" role="group" aria-label="聞こえたコードの種類">${earKinds().map(kind => `<button type="button" data-cq="ear-choice" data-value="${kind}" aria-pressed="${state.earChoice === kind}" ${state.solved || state.saving ? 'disabled' : ''}>${CHORDS[kind].name}</button>`).join('')}</div>` : ''}` : '';
+  if (document.querySelector('#curriculum-stage')) document.querySelector('#curriculum-stage').value = activeCurriculumStage(state.mode);
   if (document.querySelector('#play-region')) document.querySelector('#play-region').value = experience.playRegion;
   if (state.mode === 'ear' && state.target && experience.settings.earLevel < 3) els.prompt.textContent = 'どんな響きが聞こえましたか？';
   document.querySelector('#studio-panel').classList.toggle('hidden', state.mode !== 'practice');
@@ -305,7 +352,11 @@ async function startSession(kind) {
     const unit = LEARNING_UNITS.find(item => records.filter(record => record.solved && item.modes.includes(record.mode)).length < 3) || learningUnitForMode(experience.data.lastMode);
     const focused = available.filter(quiz => unit.modes.includes(quiz.mode))
       .sort((a, b) => Number(progress.has(a.id)) - Number(progress.has(b.id)) || Number(b.id === unit.starter) - Number(a.id === unit.starter) || a.id.localeCompare(b.id));
-    candidates = [ ...focused.slice(0, 3), ...due.slice(0, 2), ...focused.slice(3) ];
+    const ready = ['interval','chord','scale'].every(id => records.filter(r => r.solved && LEARNING_UNITS.find(u => u.id === id).modes.includes(r.mode)).length >= 3);
+    const earReady = ['major','minor'].every(kind => available.some(q => q.mode === 'ear' && q.payload.kind === kind && progress.get(q.id)?.solved));
+    const stage = ready && earReady && nextCurriculumStage(quizzes, progress);
+    const staged = ready && !earReady ? available.filter(q => q.mode === 'ear' && ['major','minor'].includes(q.payload.kind)).sort((a,b) => Number(Boolean(progress.get(a.id)?.solved)) - Number(Boolean(progress.get(b.id)?.solved))) : stage ? available.filter(q => quizStageId(q) === stage.id).sort((a,b) => Number(Boolean(progress.get(a.id)?.unassistedSolved)) - Number(Boolean(progress.get(b.id)?.unassistedSolved))) : [];
+    candidates = staged.length ? [...staged.slice(0,3), ...due.slice(0,2), ...staged.slice(3)] : [ ...focused.slice(0, 3), ...due.slice(0, 2), ...focused.slice(3) ];
   }
   const ids = [...new Set(candidates.map(quiz => quiz.id))].slice(0, kind === 'review' ? 3 : 5);
   experience.session = { ids, index: 0, results: {}, title: kind === 'review' ? '苦手を3問復習' : '今日の5分', startedAt: Date.now() };
@@ -334,7 +385,7 @@ function noteSessionAnswer(ok) {
   const previous = session.results[id];
   session.results[id] = {
     correct: ok || Boolean(previous?.correct), tries: (previous?.tries || 0) + 1,
-    answer: { selected: [...state.selected], earChoice: state.earChoice, harmonyKey: state.harmonyKey, hintCount: state.hintCount, assignments: { ...state.target.assignments } },
+    answer: { selected: [...state.selected], earChoice: state.earChoice, harmonyKey: state.harmonyKey, curriculumNotes: state.curriculumNotes, curriculumExtraHelp: state.curriculumExtraHelp, hintCount: state.hintCount, assignments: { ...state.target.assignments } },
   };
   experience.data.session = structuredClone(session);
   saveExperience();
@@ -395,7 +446,7 @@ async function renderDashboard() {
   const due = quizzes.filter(quiz => quizAvailableAtEarLevel(quiz) && isReviewDue(progress.get(quiz.id))).length;
   const nextUnit = LEARNING_UNITS.find(unit => solved.filter(record => unit.modes.includes(record.mode)).length < 3) || LEARNING_UNITS[5];
   const achievements = calculateAchievements(logs, quizzes);
-  const summaries = PLAY_MODES.map(mode => summarizeMode(mode, quizzes, progress));
+  const summaries = PLAY_MODES.filter(mode => mode !== 'harmonize').map(mode => summarizeMode(mode, quizzes, progress));
   const week = Array.from({ length: 7 }, (_, index) => {
     const date = new Date(); date.setDate(date.getDate() - 6 + index);
     const count = logs.filter(record => new Date(record.createdAt).toDateString() === date.toDateString()).length;
@@ -411,7 +462,7 @@ async function renderDashboard() {
       const count = solved.filter(record => unit.modes.includes(record.mode)).length;
       return `<article class="path-step ${unit.id === nextUnit.id ? 'current' : ''}"><span class="step-number">${count >= 3 ? '✓' : String(index + 1).padStart(2, '0')}</span><div><h4>${unit.title}</h4><p>${unit.copy}</p><small>${count >= 3 ? `基礎の3問をクリア · ${count}問正解済み` : `${count} / 3問で最初のチェックポイント`}</small></div><div class="step-actions"><button class="quiet-button" data-cq="read" data-id="${unit.section}">学ぶ</button><button class="quiet-button" data-cq="unit" data-id="${unit.id}">練習 →</button></div></article>`;
     }).join('')}</div></section><aside class="growth-section"><section class="growth-card"><p class="label">YOUR RHYTHM</p><h3>今週のリズム</h3><div class="week-chart" aria-label="直近7日間の学習回数">${week}</div><div class="today-summary"><strong>${today.length}<small> 今日の挑戦</small></strong><strong>${today.length ? Math.round(today.filter(record => record.ok).length / today.length * 100) + '%' : '—'}<small> 今日の正解率</small></strong></div></section><section class="growth-card"><p class="label">SMALL WINS</p><h3>できるようになったこと</h3><div class="achievements">${achievements.map(item => `<div class="achievement ${item.done ? 'earned' : ''}"><span aria-hidden="true">${item.done ? '✦' : '○'}</span><div><strong>${item.title}</strong><small>${item.copy}</small></div></div>`).join('')}</div></section></aside></div>
-    <details class="all-training"><summary>すべての練習と学習履歴 <span>11メニュー</span></summary><div class="mypage-grid">${summaries.map(item => `<article class="menu-score-card"><strong>${escapeHtml(MODES[item.mode].title)}</strong><div class="score-metrics"><div><span>正解済み</span><b>${item.solved}/${item.total}</b></div><div><span>挑戦</span><b>${item.attempts}</b></div><div><span>正解率</span><b>${item.accuracy}</b></div></div><div class="button-row"><button class="quiet-button" data-cq="mode" data-mode="${item.mode}">練習する</button><button class="quiet-button" data-history-mode="${item.mode}">履歴</button></div></article>`).join('')}</div></details>`;
+    <details class="all-training"><summary>すべての練習と学習履歴 <span>10メニュー</span></summary><div class="mypage-grid">${summaries.map(item => `<article class="menu-score-card"><strong>${escapeHtml(MODES[item.mode].title)}</strong><div class="score-metrics"><div><span>正解済み</span><b>${item.solved}/${item.total}</b></div><div><span>挑戦</span><b>${item.attempts}</b></div><div><span>正解率</span><b>${item.accuracy}</b></div></div><div class="button-row"><button class="quiet-button" data-cq="mode" data-mode="${item.mode}">練習する</button><button class="quiet-button" data-history-mode="${item.mode}">履歴</button></div></article>`).join('')}</div></details>${renderCurriculumPath(quizzes, progress)}`;
 }
 
 function calculateAchievements(logs, quizzes) {
@@ -447,6 +498,7 @@ function spelledChordNotes(root, kind) {
 
 function gradeAnswer() {
   const target = state.target;
+  if (target.type === 'listening') return gradeListening();
   if (state.mode === 'ear' && experience.settings.earLevel < 3) {
     if (!state.earChoice) return { incomplete: true, detail: 'お手本を聴いて、コードの種類を選んでください。' };
     return { ok: state.earChoice === target.kind, detail: `お手本は${target.root} ${target.name}。${CHORDS[target.kind].copy} ${state.earChoice !== target.kind ? `選んだ${CHORDS[state.earChoice].name}と聴き比べてみましょう。` : '同じルートで、響きの特徴を確かめましょう。'}`, missing: [], extra: [] };
@@ -460,7 +512,7 @@ function gradeAnswer() {
     const chords = Array.from({ length: target.bars.length }, (_, index) => harmonyChordById(state.selected[index]));
     if (!state.harmonyKey || chords.some(chord => !chord)) return { incomplete: true, detail: 'キーと、すべての小節のコードを選んでください。' };
     const wrong = chords.flatMap((chord, index) => chord.degree !== target.degrees[index] || state.harmonyKey !== target.key ? [`${index + 1}小節目：${chord.symbol} → 模範例 ${target.expected[index].symbol}`] : []);
-    return { ok: !wrong.length, detail: `${state.harmonyKey === target.key ? 'キーは合っています。' : `模範例のキーは${target.key}メジャーです。`}${wrong.join('。')}。${!wrong.length ? 'メロディーと伴奏の関係を聴いてみましょう。' : 'この課題は模範例との一致で判定します。他の伴奏もあり得るので、響きの違いを比べましょう。'}`, missing: [], extra: [] };
+    return { ok: !wrong.length, detail: `${state.harmonyKey === target.key ? (target.keyProvided ? '' : 'キーは合っています。') : `模範例のキーは${target.key}メジャーです。`}${wrong.join('。')}。${!wrong.length ? 'メロディーと伴奏の関係を聴いてみましょう。' : 'この課題は模範例との一致で判定します。他の伴奏もあり得るので、響きの違いを比べましょう。'}`, missing: [], extra: [] };
   }
   if (state.mode === 'diatonic' || state.mode === 'progression') {
     const expected = state.mode === 'diatonic' ? target.chords : target.progression;
@@ -506,7 +558,7 @@ function resetExplanation() {
 function renderExplanation(result) {
   const panel = document.querySelector('#explanation-panel');
   panel.classList.remove('hidden');
-  panel.innerHTML = `<div><p class="label">${result.ok ? '響きと仕組み' : 'ここを確かめよう'}</p><p>${escapeHtml(result.detail)}</p></div><div class="button-row">${state.mode !== 'function' ? '<button class="quiet-button" data-cq="compare">▶ 自分の回答 → お手本</button>' : ''}<button class="quiet-button" data-cq="read" data-id="${learningUnitForMode(state.mode).section}">関連する解説へ</button></div>${result.missing?.length || result.extra?.length ? '<small>鍵盤の＋は足りない音、−は今回使わない音です。</small>' : ''}`;
+  panel.innerHTML = `<div><p class="label">${result.ok ? '響きと仕組み' : 'ここを確かめよう'}</p><p>${escapeHtml(result.detail)}</p></div><div class="button-row">${state.mode !== 'function' || state.target.type === 'listening' ? `<button class="quiet-button" data-cq="compare">▶ ${state.target.family === 'tonic' ? '主音 → 旋律' : '自分の回答 → お手本'}</button>` : ''}<button class="quiet-button" data-cq="read" data-id="${learningUnitForMode(state.mode).section}">関連する解説へ</button></div>${result.missing?.length || result.extra?.length ? '<small>鍵盤の＋は足りない音、−は今回使わない音です。</small>' : ''}`;
   document.querySelectorAll('#keyboard .key').forEach(key => {
     const pitch = `${key.dataset.note}${key.dataset.octave}`;
     key.classList.toggle('needed', result.missing?.includes(pitch) || result.missing?.includes(key.dataset.note));
@@ -517,6 +569,7 @@ function renderExplanation(result) {
 function comparisonEvents(correct) {
   const target = state.target;
   const events = [];
+  if (target.type === 'listening') return target.family === 'tonic' && !correct ? [{pitch:`${target.key}4`,at:0,duration:.6}] : listeningEvents(correct ? target.answer : state.selected[0]);
   const add = (pitch, at = 0, duration = .65) => events.push({ pitch, at, duration });
   if (isHarmonyMode()) {
     const firstBar = experience.playRegion === 'bar' ? state.activeBar : 0;
@@ -550,7 +603,7 @@ function playComparison() {
   const offset = Math.max(0, ...own.map(event => event.at + event.duration)) + .65;
   own.forEach(event => playNote(pitchNote(event.pitch), pitchOctave(event.pitch), event.at, event.duration));
   expected.forEach(event => playNote(pitchNote(event.pitch), pitchOctave(event.pitch), event.at + offset, event.duration));
-  document.querySelector('#audio-status').textContent = '① 自分の回答';
+  document.querySelector('#audio-status').textContent = state.target.family === 'tonic' ? '① 主音' : '① 自分の回答';
   sound.later(() => { document.querySelector('#audio-status').textContent = '② お手本'; }, offset * tempoRatio());
   experience.loopTimer = setTimeout(() => { document.querySelector('#audio-status').textContent = '音から、わかる。'; }, Math.max(0, sound.endTime - sound.context.currentTime) * 1000);
 }
@@ -561,8 +614,8 @@ const LESSON_DEMOS = {
   chord: { a: 'major', aLabel: 'Cメジャー', b: 'minor', bLabel: 'Cマイナー', question: 'CメジャーをCマイナーにするには？', options: ['EをE♭にする', 'GをAにする', 'CをDにする'], answer: 'EをE♭にする', explanation: '3度を半音下げると、C・E♭・Gのマイナーコードになります。' },
   diatonic: { a: 'cadence', aLabel: 'I → IV → V → I', b: 'circle', bLabel: 'I → vi → ii → V', question: 'CメジャーのVのコードは？', options: ['F', 'G', 'Am'], answer: 'G', explanation: 'Cから5番目の音Gをルートに、G・B・Dを重ねます。' },
   'degree-transpose': { a: 'c-fifth', aLabel: 'Cの第5音 · G', b: 'g-fifth', bLabel: 'Gの第5音 · D', question: 'Cの第3音Eを、Gメジャーへ移調すると？', options: ['A', 'B', 'D'], answer: 'B', explanation: 'G・A・Bと数えると、第3音はB。役割を保ってキーを変えます。' },
-  'one-bar-harmony': { a: 'one-melody', aLabel: 'メロディーだけ', b: 'one-harmony', bLabel: 'Cの伴奏をつける', question: 'C・E・Gを構成音に持つコードは？', options: ['C', 'Dm', 'F'], answer: 'C', explanation: 'Cメジャーの構成音です。BからCへの動きと、C・E・Gの着地を聴いてみましょう。' },
-  'melody-harmony': { a: 'four-melody', aLabel: '4小節のメロディー', b: 'four-harmony', bLabel: '伴奏を重ねる', question: 'この例の I → vi → IV → V をCメジャーで表すと？', options: ['C → Am → F → G', 'C → Dm → Em → F', 'Am → G → F → Em'], answer: 'C → Am → F → G', explanation: '度数の役割を保つと、キーが変わっても同じ進行を作れます。' },
+  'one-bar-harmony': { a: 'one-melody', aLabel: 'メロディーだけ', b: 'one-harmony', bLabel: 'Cの伴奏をつける', stage: 'one-two' },
+  'melody-harmony': { a: 'four-melody', aLabel: '4小節のメロディー', b: 'four-harmony', bLabel: '伴奏を重ねる', stage: 'gap-two' },
   function: { a: 'dominant-tonic', aLabel: 'G → C · 緊張から安定', b: 'sub-tonic', bLabel: 'F → C · 展開から安定', question: 'CメジャーのGの基本的な役割は？', options: ['トニック', 'サブドミナント', 'ドミナント'], answer: 'ドミナント', explanation: 'GはVのコードで、基本的にはドミナント。Iへ戻る動きを聴いてみましょう。' },
   progression: { a: 'royal', aLabel: '王道進行', b: 'pop', bLabel: 'ポップ進行', question: '王道進行の度数は？', options: ['IV → V → iii → vi', 'I → IV → V → I', 'ii → V → I'], answer: 'IV → V → iii → vi', explanation: 'CメジャーならF → G → Em → Am。最後のAmへの着地を聴いてみましょう。' },
   cliche: { a: 'cliche', aLabel: 'C → Cmaj7 → C7 → F', b: 'cliche-line', bLabel: 'C → B → B♭ → A の線', question: 'このクリシェの下降する声部は？', options: ['C → B → B♭ → A', 'C → D → E → F', 'G → A → B → C'], answer: 'C → B → B♭ → A', explanation: 'コードが変わる間に、ひとつの声部が少しずつ下降します。' },
@@ -578,6 +631,10 @@ function renderInteractiveLesson(section) {
   const pitches = scalePitches('C', 4, Array.from({ length: 13 }, (_, index) => index));
   const whiteSlots = { C: 0, D: 1, E: 2, F: 3, G: 4, A: 5, B: 6 };
   const blackSlots = { 'C#': 1, 'D#': 2, 'F#': 4, 'G#': 5, 'A#': 6 };
+  if (demo.stage) {
+    const stage = demo.stage;
+    return `<section class="interactive-lesson"><h3>伴奏を聴き比べてみよう</h3><p>キーと音名を見ながら、候補の伴奏を置いてメロディーとの響きを確かめます。</p><div class="button-row"><button class="quiet-button" data-cq="demo" data-value="${demo.a}">▶ ${demo.aLabel}</button><button class="quiet-button" data-cq="demo" data-value="${demo.b}">▶ ${demo.bLabel}</button><button class="primary-button" data-cq="curriculum-open" data-value="${stage}">伴奏を選ぶ練習へ</button></div></section>`;
+  }
   return `<section class="interactive-lesson"><p class="label">LISTEN → PLAY → TRY</p><h3>耳と手で確かめよう</h3><div class="button-row"><button class="quiet-button" data-cq="demo" data-value="${demo.a}">▶ ${demo.aLabel}</button><button class="quiet-button" data-cq="demo" data-value="${demo.b}">▶ ${demo.bLabel}</button></div><div class="mini-piano" aria-label="音を試せる鍵盤">${pitches.map(pitch => {
     const note = pitchNote(pitch), black = note.includes('#');
     return `<button type="button" class="mini-key ${black ? 'mini-black' : ''}" style="${black ? `left:${blackSlots[note] / 8 * 100}%` : `grid-column:${pitch === 'C5' ? 8 : whiteSlots[note] + 1}`}" data-cq="demo-key" data-pitch="${pitch}" data-demo-pitch="${pitch}" aria-label="${noteLabel(pitch)}"><span>${note.replace('#', '♯')}</span></button>`;
@@ -612,7 +669,7 @@ function playLessonDemo(kind) {
   else if (kind === 'cliche-line') sequence(['C5', 'B4', 'A#4', 'A4']);
   else {
     const four = kind.startsWith('four');
-    const melody = four ? HARMONIZE_CHALLENGES[0] : ONE_BAR_HARMONY_CHALLENGES[0];
+    const melody = curriculumTarget({id:'demo',payload:{stage:four ? 'four-basic' : 'one-two',index:0}});
     melody.bars.forEach((bar, index) => {
       bar.forEach((pitch, n) => note(pitch, index * 1.2 + n * .3, .28));
       if (kind.endsWith('harmony')) chordTonePitches(diatonicChords('C').find(item => item.degree === melody.degrees[index]), 3).forEach(pitch => note(pitch, index * 1.2, 1));

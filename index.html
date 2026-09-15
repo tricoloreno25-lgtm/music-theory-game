@@ -7,9 +7,9 @@
     <meta name="theme-color" content="#101426" />
     <meta name="description" content="毎日5分、耳と手で音楽理論を。音程・コード・耳トレから、自分だけのコード進行づくりまで。" />
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
-    <link rel="stylesheet" href="./styles.css?v=melody-guide-20260913" />
-    <link rel="stylesheet" href="./rich-theme.css?v=melody-guide-20260913" />
-    <link rel="stylesheet" href="./experience.css?v=melody-guide-20260913" />
+    <link rel="stylesheet" href="./styles.css?v=scroll-keys-20260915" />
+    <link rel="stylesheet" href="./rich-theme.css?v=scroll-keys-20260915" />
+    <link rel="stylesheet" href="./experience.css?v=scroll-keys-20260915" />
   </head>
   <body>
     <!-- 手修正ポイント: アプリ全体の外枠。大きな余白や全体幅は styles.css の .app-shell / .stage を調整 -->
@@ -31,8 +31,7 @@
               <div class="training-popover hidden" id="training-popover">
                 <button data-mode="interval">音程</button>
                 <button data-mode="transpose">度数と移調</button>
-                <button data-mode="harmonyOne">1小節の和声</button>
-                <button data-mode="harmonize">4小節の和声</button>
+                <button data-mode="harmonyOne">メロディーに伴奏をつける</button>
                 <button data-mode="lesson">総合演習</button>
                 <button data-mode="chord">コード</button>
                 <button data-mode="scale">スケール</button>
@@ -167,8 +166,13 @@
 
             <!-- 手修正ポイント: 鍵盤本体。キーは app.js の renderKeyboard で生成 -->
             <div class="keyboard-wrap" id="keyboard-wrap">
-              <div class="keyboard-controls"><span>鍵盤で試す</span><div role="group" aria-label="鍵盤の音域"><button type="button" data-cq="octave" data-octave="4" aria-pressed="true">C4–C5</button><button type="button" data-cq="octave" data-octave="5" aria-pressed="false">C5–C6</button></div></div>
-              <div class="keyboard" id="keyboard" aria-label="ピアノ鍵盤"></div>
+              <div class="keyboard-controls"><span>鍵盤で試す</span><span id="keyboard-range-label">C4–C6</span></div>
+              <div class="keyboard-viewport" id="keyboard-viewport" tabindex="0" role="region" aria-label="ピアノ鍵盤。左右にスクロールして音域を移動"><div class="keyboard" id="keyboard" aria-label="ピアノ鍵盤"></div></div>
+              <div class="keyboard-scroll-controls">
+                <p>↔ 鍵盤を左右にスワイプ</p>
+                <div class="keyboard-scroll-labels"><span>低い音 · C4</span><span>C6 · 高い音</span></div>
+                <div class="keyboard-scroll-row"><button type="button" data-cq="keyboard-move" data-value="-1" aria-label="低い音域へ移動">‹</button><input id="keyboard-scroll" type="range" min="0" max="1000" value="0" aria-label="鍵盤の表示位置"><button type="button" data-cq="keyboard-move" data-value="1" aria-label="高い音域へ移動">›</button></div>
+              </div>
             </div>
             <section id="studio-panel" class="studio-panel hidden" aria-label="小さな作曲室"></section>
 
@@ -189,8 +193,9 @@
       </section>
     </main>
     <div id="toast" class="toast hidden" role="status"></div>
-    <script src="./audio.js?v=melody-guide-20260913"></script>
-    <script src="./app.js?v=melody-guide-20260913"></script>
-    <script src="./experience.js?v=melody-guide-20260913"></script>
+    <script src="./audio.js?v=scroll-keys-20260915"></script>
+    <script src="./app.js?v=scroll-keys-20260915"></script>
+    <script src="./curriculum.js?v=scroll-keys-20260915"></script>
+    <script src="./experience.js?v=scroll-keys-20260915"></script>
   </body>
 </html>
